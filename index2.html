@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grasp Electric | Industrial Enclosure Systems</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --maroon: #7D1128;
+            --maroon-dark: #5A0C1C;
+            --maroon-glow: rgba(125, 17, 40, 0.3);
+            --black: #080808;
+            --grey-900: #151515;
+            --grey-800: #252525;
+            --grey-700: #404040;
+            --grey-600: #5A5A5A;
+            --grey-500: #777777;
+            --grey-400: #999999;
+            --grey-300: #BBBBBB;
+            --grey-200: #DDDDDD;
+            --grey-100: #EEEEEE;
+            --grey-50: #F7F7F7;
+            --white: #FFFFFF;
+            --font-display: 'Bebas Neue', sans-serif;
+            --font-body: 'Instrument Sans', system-ui, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 16px;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--white);
+            color: var(--grey-700);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ========== NAVIGATION ========== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 0 clamp(24px, 4vw, 48px);
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        .nav.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .nav-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 72px;
+            border-bottom: 1px solid var(--grey-200);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 0 24px;
+        }
+
+        .nav-logo {
+            font-family: var(--font-display);
+            font-size: 18px;
+            letter-spacing: 0.08em;
+            color: var(--black);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .nav-links a {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--grey-600);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--black);
+        }
+
+        .nav-cta {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--white);
+            background: var(--maroon);
+            padding: 10px 20px;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .nav-cta:hover {
+            background: var(--maroon-dark);
+        }
+
+        /* ========== BRAND REVEAL SECTION ========== */
+        .brand-reveal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--white);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.3s ease;
+        }
+
+        .brand-reveal.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .brand-name {
+            font-family: var(--font-display);
+            font-size: clamp(48px, 12vw, 160px);
+            letter-spacing: 0.12em;
+            color: var(--black);
+            text-align: center;
+            line-height: 1;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .brand-name span {
+            display: block;
+        }
+
+        .brand-name .word-grasp {
+            transform-origin: center bottom;
+        }
+
+        .brand-name .word-electric {
+            font-size: 0.7em;
+            letter-spacing: 0.2em;
+            color: var(--grey-500);
+            margin-top: 8px;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 48px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            opacity: 0;
+            animation: fadeIn 1s ease forwards 1s;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .scroll-hint-text {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--grey-400);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .scroll-hint-line {
+            width: 1px;
+            height: 48px;
+            background: linear-gradient(to bottom, var(--grey-400), transparent);
+            animation: scrollPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes scrollPulse {
+            0%, 100% { transform: scaleY(1); opacity: 0.6; }
+            50% { transform: scaleY(0.5); opacity: 1; }
+        }
+
+        /* ========== HERO SECTION ========== */
+        .hero {
+            position: relative;
+            min-height: 200vh;
+            background: var(--white);
+        }
+
+        .hero-sticky {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Technical Grid Background */
+        .grid-system {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+
+        .grid-system.visible {
+            opacity: 1;
+        }
+
+        .grid-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(var(--grey-100) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grey-100) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.6;
+        }
+
+        /* Electrical Network SVG */
+        .network-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 1s ease 0.3s;
+        }
+
+        .network-svg.visible {
+            opacity: 1;
+        }
+
+        .network-line {
+            stroke: var(--grey-300);
+            stroke-width: 1;
+            fill: none;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            transition: stroke-dashoffset 2s ease;
+        }
+
+        .network-line.animated {
+            stroke-dashoffset: 0;
+        }
+
+        .network-line.accent {
+            stroke: var(--maroon);
+            stroke-width: 1.5;
+            opacity: 0.6;
+        }
+
+        .network-node {
+            fill: var(--grey-300);
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .network-node.visible {
+            opacity: 1;
+        }
+
+        .network-node.accent {
+            fill: var(--maroon);
+        }
+
+        .network-node-ring {
+            stroke: var(--maroon);
+            stroke-width: 1;
+            fill: none;
+            opacity: 0;
+            transform-origin: center;
+            transform: scale(0.5);
+            transition: all 0.6s ease;
+        }
+
+        .network-node-ring.visible {
+            opacity: 0.4;
+            transform: scale(1);
+        }
+
+        /* Floating Brand (transformed) */
+        .hero-brand {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: var(--font-display);
+            font-size: 14px;
+            letter-spacing: 0.2em;
+            color: var(--grey-400);
+            opacity: 0;
+            transition: opacity 0.6s ease;
+            z-index: 10;
+        }
+
+        .hero-brand.visible {
+            opacity: 1;
+        }
+
+        /* Hero Content */
+        .hero-content {
+            position: relative;
+            z-index: 20;
+            max-width: 900px;
+            padding: 0 32px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hero-content.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hero-headline {
+            font-family: var(--font-body);
+            font-size: clamp(32px, 5vw, 56px);
+            font-weight: 700;
+            color: var(--black);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 24px;
+        }
+
+        .hero-headline span {
+            color: var(--maroon);
+        }
+
+        .hero-subhead {
+            font-size: clamp(16px, 1.5vw, 19px);
+            color: var(--grey-600);
+            line-height: 1.7;
+            max-width: 640px;
+            margin: 0 auto 40px;
+        }
+
+        .hero-ctas {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--maroon);
+            color: var(--white);
+            padding: 16px 28px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: var(--maroon-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px var(--maroon-glow);
+        }
+
+        .btn-primary svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--grey-700);
+            padding: 16px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid var(--grey-300);
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--black);
+            color: var(--black);
+        }
+
+        /* ========== TRADITIONAL B2B SECTIONS ========== */
+        .section {
+            padding: 120px clamp(24px, 4vw, 64px);
+        }
+
+        .section-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--maroon);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: clamp(28px, 3.5vw, 40px);
+            font-weight: 700;
+            color: var(--black);
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .section-desc {
+            font-size: 17px;
+            color: var(--grey-600);
+            max-width: 560px;
+            line-height: 1.7;
+        }
+
+        /* Products Section */
+        .products-section {
+            background: var(--grey-50);
+        }
+
+        .products-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 56px;
+        }
+
+        .products-link {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--maroon);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .products-link svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .product-card {
+            background: var(--white);
+            border: 1px solid var(--grey-200);
+            padding: 36px 28px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .product-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: var(--maroon);
+            transition: width 0.3s ease;
+        }
+
+        .product-card:hover {
+            border-color: var(--grey-300);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+        }
+
+        .product-card:hover::after {
+            width: 100%;
+        }
+
+        .product-code {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--grey-400);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+
+        .product-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--black);
+            margin-bottom: 10px;
+        }
+
+        .product-desc {
+            font-size: 14px;
+            color: var(--grey-600);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .product-specs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .product-spec {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--grey-600);
+            padding: 5px 10px;
+            background: var(--grey-50);
+            border: 1px solid var(--grey-200);
+        }
+
+        /* Industries Section */
+        .industries-section {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .industries-section .section-label {
+            color: var(--grey-500);
+        }
+
+        .industries-section .section-title {
+            color: var(--white);
+        }
+
+        .industries-section .section-desc {
+            color: var(--grey-400);
+        }
+
+        .industries-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--grey-800);
+            margin-top: 56px;
+        }
+
+        .industry-item {
+            background: var(--black);
+            padding: 40px 24px;
+            text-align: center;
+            transition: background 0.3s ease;
+        }
+
+        .industry-item:hover {
+            background: var(--grey-900);
+        }
+
+        .industry-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .industry-icon svg {
+            width: 32px;
+            height: 32px;
+            stroke: var(--maroon);
+        }
+
+        .industry-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 8px;
+        }
+
+        .industry-desc {
+            font-size: 13px;
+            color: var(--grey-500);
+        }
+
+        /* Certifications Section */
+        .certs-section {
+            background: var(--white);
+            border-top: 1px solid var(--grey-200);
+        }
+
+        .certs-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 32px;
+            margin-top: 48px;
+        }
+
+        .cert-item {
+            text-align: center;
+            padding: 32px 20px;
+            border: 1px solid var(--grey-200);
+            transition: border-color 0.2s;
+        }
+
+        .cert-item:hover {
+            border-color: var(--maroon);
+        }
+
+        .cert-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--grey-50);
+            border-radius: 50%;
+        }
+
+        .cert-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--maroon);
+        }
+
+        .cert-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--black);
+            margin-bottom: 4px;
+        }
+
+        .cert-desc {
+            font-size: 12px;
+            color: var(--grey-500);
+        }
+
+        /* Contact Section */
+        .contact-section {
+            background: var(--grey-50);
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            margin-top: 48px;
+        }
+
+        .contact-info h3 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--black);
+            margin-bottom: 24px;
+        }
+
+        .contact-item {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .contact-item-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--white);
+            border: 1px solid var(--grey-200);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .contact-item-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--maroon);
+        }
+
+        .contact-item-text {
+            font-size: 15px;
+            color: var(--grey-700);
+            line-height: 1.6;
+        }
+
+        .contact-item-text strong {
+            display: block;
+            color: var(--black);
+            margin-bottom: 4px;
+        }
+
+        .contact-form {
+            background: var(--white);
+            border: 1px solid var(--grey-200);
+            padding: 40px;
+        }
+
+        .contact-form h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--black);
+            margin-bottom: 24px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--grey-700);
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-family: var(--font-body);
+            border: 1px solid var(--grey-200);
+            background: var(--white);
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--maroon);
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-submit {
+            width: 100%;
+            background: var(--maroon);
+            color: var(--white);
+            padding: 14px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-body);
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .form-submit:hover {
+            background: var(--maroon-dark);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--black);
+            padding: 64px clamp(24px, 4vw, 64px) 32px;
+            color: var(--grey-400);
+        }
+
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
+        }
+
+        .footer-brand {
+            font-family: var(--font-display);
+            font-size: 20px;
+            letter-spacing: 0.1em;
+            color: var(--white);
+            margin-bottom: 16px;
+        }
+
+        .footer-desc {
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--grey-500);
+        }
+
+        .footer-col h4 {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--grey-300);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
+        }
+
+        .footer-col a {
+            display: block;
+            font-size: 14px;
+            color: var(--grey-500);
+            text-decoration: none;
+            margin-bottom: 10px;
+            transition: color 0.2s;
+        }
+
+        .footer-col a:hover {
+            color: var(--white);
+        }
+
+        .footer-bottom {
+            padding-top: 32px;
+            border-top: 1px solid var(--grey-800);
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--grey-600);
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1024px) {
+            .nav-links {
+                display: none;
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .industries-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .certs-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .footer-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero-ctas {
+                flex-direction: column;
+            }
+
+            .btn-primary, .btn-secondary {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .products-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .industries-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .certs-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .contact-grid {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .certs-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .contact-form {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation (hidden initially) -->
+    <nav class="nav" id="mainNav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">GRASP ELECTRIC</a>
+            <div class="nav-links">
+                <a href="#products">Products</a>
+                <a href="#industries">Industries</a>
+                <a href="#certifications">Certifications</a>
+                <a href="#contact">Contact</a>
+                <a href="#contact" class="nav-cta">Get Quote</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Brand Reveal Section -->
+    <section class="brand-reveal" id="brandReveal">
+        <h1 class="brand-name" id="brandName">
+            <span class="word-grasp">GRASP</span>
+            <span class="word-electric">ELECTRIC</span>
+        </h1>
+        <div class="scroll-hint">
+            <span class="scroll-hint-text">Scroll to explore</span>
+            <div class="scroll-hint-line"></div>
+        </div>
+    </section>
+
+    <!-- Hero Section -->
+    <section class="hero" id="heroSection">
+        <div class="hero-sticky">
+            <!-- Technical Grid Background -->
+            <div class="grid-system" id="gridSystem">
+                <div class="grid-lines"></div>
+            </div>
+
+            <!-- Electrical Network Visualization -->
+            <svg class="network-svg" id="networkSvg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <!-- Main horizontal lines -->
+                <path class="network-line" d="M0,400 H600 L700,350 H1200 L1300,400 H1920"/>
+                <path class="network-line" d="M0,600 H400 L500,680 H900 L1000,600 H1920"/>
+                <path class="network-line accent" d="M960,0 V300 L860,400 V540 L960,600 V1080"/>
+                
+                <!-- Vertical connectors -->
+                <path class="network-line" d="M300,0 V400"/>
+                <path class="network-line" d="M600,400 V1080"/>
+                <path class="network-line" d="M1300,0 V400"/>
+                <path class="network-line" d="M1500,600 V1080"/>
+                
+                <!-- Diagonal connections -->
+                <path class="network-line" d="M400,200 L600,400"/>
+                <path class="network-line" d="M1400,250 L1300,400"/>
+                <path class="network-line accent" d="M700,350 L860,400"/>
+                <path class="network-line accent" d="M1200,350 L1060,400"/>
+                
+                <!-- Branch lines -->
+                <path class="network-line" d="M200,400 L200,500 L400,600"/>
+                <path class="network-line" d="M1600,400 L1600,500 L1500,600"/>
+                
+                <!-- Nodes -->
+                <circle class="network-node" cx="300" cy="400" r="6"/>
+                <circle class="network-node" cx="600" cy="400" r="6"/>
+                <circle class="network-node accent" cx="960" cy="400" r="10"/>
+                <circle class="network-node-ring" cx="960" cy="400" r="20"/>
+                <circle class="network-node" cx="1300" cy="400" r="6"/>
+                <circle class="network-node" cx="400" cy="600" r="6"/>
+                <circle class="network-node accent" cx="960" cy="600" r="8"/>
+                <circle class="network-node-ring" cx="960" cy="600" r="16"/>
+                <circle class="network-node" cx="1500" cy="600" r="6"/>
+                <circle class="network-node" cx="700" cy="350" r="4"/>
+                <circle class="network-node" cx="1200" cy="350" r="4"/>
+            </svg>
+
+            <!-- Transformed Brand -->
+            <div class="hero-brand" id="heroBrand">GRASP ELECTRIC</div>
+
+            <!-- Hero Content -->
+            <div class="hero-content" id="heroContent">
+                <h2 class="hero-headline">
+                    Protecting Critical <span>Electrical Infrastructure</span> Across India
+                </h2>
+                <p class="hero-subhead">
+                    We engineer and manufacture precision enclosure systems that safeguard power distribution, automation, and control applications in demanding industrial environments.
+                </p>
+                <div class="hero-ctas">
+                    <a href="#products" class="btn-primary">
+                        Explore Products
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                    <a href="#contact" class="btn-secondary">
+                        Request Specification
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section class="section products-section" id="products">
+        <div class="section-inner">
+            <div class="products-header">
+                <div>
+                    <div class="section-label">Product Range</div>
+                    <h2 class="section-title">Enclosure Systems</h2>
+                    <p class="section-desc">Comprehensive range of protective enclosures engineered for industrial applications.</p>
+                </div>
+                <a href="#" class="products-link">
+                    View All Products
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+
+            <div class="products-grid">
+                <div class="product-card">
+                    <div class="product-code">GE-PC Series</div>
+                    <h3 class="product-name">Polycarbonate Enclosures</h3>
+                    <p class="product-desc">UV-stabilized transparent and opaque enclosures for HMI panels and instrumentation systems.</p>
+                    <div class="product-specs">
+                        <span class="product-spec">IP67</span>
+                        <span class="product-spec">-40°C to +80°C</span>
+                        <span class="product-spec">UL94 V-0</span>
+                    </div>
+                </div>
+                <div class="product-card">
+                    <div class="product-code">GE-MT Series</div>
+                    <h3 class="product-name">Metal Enclosures</h3>
+                    <p class="product-desc">Powder-coated steel and aluminum enclosures for power distribution and harsh environments.</p>
+                    <div class="product-specs">
+                        <span class="product-spec">IP65</span>
+                        <span class="product-spec">EMI Shielded</span>
+                        <span class="product-spec">IK10</span>
+                    </div>
+                </div>
+                <div class="product-card">
+                    <div class="product-code">GE-JB Series</div>
+                    <h3 class="product-name">Junction Boxes</h3>
+                    <p class="product-desc">Multi-entry junction boxes with DIN rail compatibility for cable management.</p>
+                    <div class="product-specs">
+                        <span class="product-spec">IP66</span>
+                        <span class="product-spec">Pre-Drilled</span>
+                        <span class="product-spec">Modular</span>
+                    </div>
+                </div>
+                <div class="product-card">
+                    <div class="product-code">GE-TB Series</div>
+                    <h3 class="product-name">Terminal Enclosures</h3>
+                    <p class="product-desc">Specialized enclosures for terminal blocks and distribution systems.</p>
+                    <div class="product-specs">
+                        <span class="product-spec">IP65</span>
+                        <span class="product-spec">Hinged Door</span>
+                        <span class="product-spec">Rail Mount</span>
+                    </div>
+                </div>
+                <div class="product-card">
+                    <div class="product-code">GE-HZ Series</div>
+                    <h3 class="product-name">Hazardous Area</h3>
+                    <p class="product-desc">ATEX and IECEx certified enclosures for explosive atmospheres.</p>
+                    <div class="product-specs">
+                        <span class="product-spec">Zone 1/2</span>
+                        <span class="product-spec">Ex d/Ex e</span>
+                        <span class="product-spec">ATEX</span>
+                    </div>
+                </div>
+                <div class="product-card">
+                    <div class="product-code">GE-CS Series</div>
+                    <h3 class="product-name">Custom Solutions</h3>
+                    <p class="product-desc">Tailored enclosure designs with CNC precision cutting and specialized configurations.</p>
+                    <div class="product-specs">
+                        <span class="product-spec">CAD Support</span>
+                        <span class="product-spec">Prototyping</span>
+                        <span class="product-spec">Volume</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Industries Section -->
+    <section class="section industries-section" id="industries">
+        <div class="section-inner">
+            <div class="section-label">Applications</div>
+            <h2 class="section-title">Industries We Serve</h2>
+            <p class="section-desc">Trusted by leading enterprises across critical infrastructure sectors.</p>
+
+            <div class="industries-grid">
+                <div class="industry-item">
+                    <div class="industry-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name">Power & Energy</h3>
+                    <p class="industry-desc">Generation & Distribution</p>
+                </div>
+                <div class="industry-item">
+                    <div class="industry-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <rect x="2" y="7" width="20" height="14" rx="2"/>
+                            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"/>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name">Manufacturing</h3>
+                    <p class="industry-desc">Factory Automation</p>
+                </div>
+                <div class="industry-item">
+                    <div class="industry-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name">Infrastructure</h3>
+                    <p class="industry-desc">Smart Cities & Transport</p>
+                </div>
+                <div class="industry-item">
+                    <div class="industry-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name">Process Industries</h3>
+                    <p class="industry-desc">Oil, Gas & Chemicals</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Certifications Section -->
+    <section class="section certs-section" id="certifications">
+        <div class="section-inner">
+            <div class="section-label">Quality Assurance</div>
+            <h2 class="section-title">Certifications & Standards</h2>
+            <p class="section-desc">Products manufactured to international quality and safety standards.</p>
+
+            <div class="certs-grid">
+                <div class="cert-item">
+                    <div class="cert-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                    </div>
+                    <div class="cert-name">ISO 9001:2015</div>
+                    <div class="cert-desc">Quality Management</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                    </div>
+                    <div class="cert-name">IEC 62208</div>
+                    <div class="cert-desc">Enclosure Standard</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <div class="cert-name">IP65-IP68</div>
+                    <div class="cert-desc">Ingress Protection</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <rect x="3" y="11" width="18" height="11" rx="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                    </div>
+                    <div class="cert-name">BIS Certified</div>
+                    <div class="cert-desc">Indian Standards</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <div class="cert-name">RoHS</div>
+                    <div class="cert-desc">Environmental</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="section contact-section" id="contact">
+        <div class="section-inner">
+            <div class="section-label">Get in Touch</div>
+            <h2 class="section-title">Contact & Enquiries</h2>
+            <p class="section-desc">Speak with our engineering team for technical specifications and custom requirements.</p>
+
+            <div class="contact-grid">
+                <div class="contact-info">
+                    <h3>Direct Contact</h3>
+                    <div class="contact-item">
+                        <div class="contact-item-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                        </div>
+                        <div class="contact-item-text">
+                            <strong>Manufacturing Facility</strong>
+                            Industrial Area, Phase II<br>
+                            Sector 56, Noida, UP 201301
+                        </div>
+                    </div>
+                    <div class="contact-item">
+                        <div class="contact-item-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                            </svg>
+                        </div>
+                        <div class="contact-item-text">
+                            <strong>Sales & Support</strong>
+                            +91 120 456 7890<br>
+                            +91 98765 43210
+                        </div>
+                    </div>
+                    <div class="contact-item">
+                        <div class="contact-item-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                        </div>
+                        <div class="contact-item-text">
+                            <strong>Email</strong>
+                            sales@graspelectric.com<br>
+                            engineering@graspelectric.com
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact-form">
+                    <h3>Request Quote</h3>
+                    <form>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Name *</label>
+                                <input type="text" required placeholder="Your name">
+                            </div>
+                            <div class="form-group">
+                                <label>Company</label>
+                                <input type="text" placeholder="Company name">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Email *</label>
+                                <input type="email" required placeholder="Email address">
+                            </div>
+                            <div class="form-group">
+                                <label>Phone</label>
+                                <input type="tel" placeholder="Phone number">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Product Interest</label>
+                            <select>
+                                <option value="">Select category</option>
+                                <option value="pc">Polycarbonate Enclosures</option>
+                                <option value="mt">Metal Enclosures</option>
+                                <option value="jb">Junction Boxes</option>
+                                <option value="hz">Hazardous Area</option>
+                                <option value="cs">Custom Solutions</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Requirements</label>
+                            <textarea placeholder="Describe your requirements, quantities, specifications..."></textarea>
+                        </div>
+                        <button type="submit" class="form-submit">Submit Enquiry</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-inner">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-brand">GRASP ELECTRIC</div>
+                    <p class="footer-desc">ISO 9001:2015 certified manufacturer of industrial electrical and polycarbonate enclosures. Engineering protection since 1999.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Products</h4>
+                    <a href="#">Polycarbonate</a>
+                    <a href="#">Metal Enclosures</a>
+                    <a href="#">Junction Boxes</a>
+                    <a href="#">Hazardous Area</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Resources</h4>
+                    <a href="#">Product Catalogue</a>
+                    <a href="#">Datasheets</a>
+                    <a href="#">CAD Downloads</a>
+                    <a href="#">Installation</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <a href="#">About Us</a>
+                    <a href="#">Manufacturing</a>
+                    <a href="#">Certifications</a>
+                    <a href="#">Careers</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2024 Grasp Electric Pvt. Ltd.</span>
+                <span>ISO 9001:2015 · BIS Certified · IEC Compliant</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Scroll-based animation controller
+        const brandReveal = document.getElementById('brandReveal');
+        const brandName = document.getElementById('brandName');
+        const heroSection = document.getElementById('heroSection');
+        const gridSystem = document.getElementById('gridSystem');
+        const networkSvg = document.getElementById('networkSvg');
+        const heroBrand = document.getElementById('heroBrand');
+        const heroContent = document.getElementById('heroContent');
+        const mainNav = document.getElementById('mainNav');
+        
+        const networkLines = document.querySelectorAll('.network-line');
+        const networkNodes = document.querySelectorAll('.network-node');
+        const networkRings = document.querySelectorAll('.network-node-ring');
+
+        let lastScrollY = 0;
+        let ticking = false;
+
+        function updateOnScroll() {
+            const scrollY = window.scrollY;
+            const windowHeight = window.innerHeight;
+            const triggerPoint = windowHeight * 0.3;
+            const transitionEnd = windowHeight * 0.8;
+            
+            // Phase 1: Brand reveal fades and transforms (0 to triggerPoint)
+            if (scrollY < triggerPoint) {
+                const progress = scrollY / triggerPoint;
+                
+                // Scale down and fade brand
+                brandName.style.transform = `scale(${1 - progress * 0.3})`;
+                brandName.style.opacity = 1 - progress;
+                
+                // Keep reveal visible
+                brandReveal.classList.remove('hidden');
+                
+            } else {
+                // Hide brand reveal
+                brandReveal.classList.add('hidden');
+            }
+
+            // Phase 2: Hero elements appear (triggerPoint to transitionEnd)
+            if (scrollY >= triggerPoint) {
+                const heroProgress = Math.min((scrollY - triggerPoint) / (transitionEnd - triggerPoint), 1);
+                
+                // Show grid system
+                gridSystem.classList.add('visible');
+                
+                // Show network SVG
+                networkSvg.classList.add('visible');
+                
+                // Animate network lines
+                if (heroProgress > 0.2) {
+                    networkLines.forEach(line => line.classList.add('animated'));
+                }
+                
+                // Animate nodes
+                if (heroProgress > 0.4) {
+                    networkNodes.forEach(node => node.classList.add('visible'));
+                }
+                
+                // Animate rings
+                if (heroProgress > 0.5) {
+                    networkRings.forEach(ring => ring.classList.add('visible'));
+                }
+                
+                // Show hero brand
+                if (heroProgress > 0.3) {
+                    heroBrand.classList.add('visible');
+                }
+                
+                // Show hero content
+                if (heroProgress > 0.5) {
+                    heroContent.classList.add('visible');
+                }
+                
+                // Show navigation
+                if (heroProgress > 0.7) {
+                    mainNav.classList.add('visible');
+                }
+            } else {
+                // Reset hero elements
+                gridSystem.classList.remove('visible');
+                networkSvg.classList.remove('visible');
+                heroBrand.classList.remove('visible');
+                heroContent.classList.remove('visible');
+                mainNav.classList.remove('visible');
+                networkLines.forEach(line => line.classList.remove('animated'));
+                networkNodes.forEach(node => node.classList.remove('visible'));
+                networkRings.forEach(ring => ring.classList.remove('visible'));
+            }
+
+            ticking = false;
+        }
+
+        window.addEventListener('scroll', () => {
+            lastScrollY = window.scrollY;
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    updateOnScroll();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        });
+
+        // Initial state
+        updateOnScroll();
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Form submission
+        document.querySelector('.contact-form form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Thank you for your enquiry. Our team will contact you shortly.');
+            this.reset();
+        });
+    </script>
+</body>
+</html>

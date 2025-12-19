@@ -1,0 +1,64 @@
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { AuthProvider, ProductProvider } from './contexts';
+import { ProtectedRoute, ScrollToTop } from './components';
+import { AdminLayout } from './layouts';
+import { Home, Products, ProductDetail, CategoryProducts, About, Contact } from './pages';
+import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm } from './admin/pages';
+import './styles/index.css';
+
+// 404 Not Found Component
+const NotFound = () => (
+  <div className="page-not-found">
+    <h1>404</h1>
+    <p>Page not found</p>
+    <Link to="/" className="btn-primary">Go Home</Link>
+  </div>
+);
+
+function App() {
+  return (
+    <AuthProvider>
+      <ProductProvider>
+        <Router>
+          <ScrollToTop />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/:slug" element={<ProductDetail />} />
+            <Route path="/products/category/:slug" element={<CategoryProducts />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+
+            {/* Admin Routes */}
+            <Route path="/admin/login" element={<Login />} />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="products" element={<ProductsList />} />
+              <Route path="products/new" element={<ProductForm />} />
+              <Route path="products/edit/:id" element={<ProductForm />} />
+              <Route path="categories" element={<CategoriesList />} />
+              <Route path="categories/new" element={<CategoryForm />} />
+              <Route path="categories/edit/:id" element={<CategoryForm />} />
+              <Route path="inquiries" element={<div className="admin-placeholder">Inquiries List - Coming Soon</div>} />
+              <Route path="settings" element={<div className="admin-placeholder">Settings Page - Coming Soon</div>} />
+            </Route>
+
+            {/* 404 Route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Router>
+      </ProductProvider>
+    </AuthProvider>
+  );
+}
+
+export default App;

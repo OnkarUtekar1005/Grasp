@@ -1,0 +1,210 @@
+import { useState } from 'react';
+import { Navbar, Footer } from '../components';
+
+const contactInfo = [
+  {
+    title: 'Corporate Office',
+    content: 'Plot 180, Sector 8\nIMT Manesar, Gurgaon\n122051, Haryana, India',
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+        <circle cx="12" cy="10" r="3" />
+      </svg>
+    )
+  },
+  {
+    title: 'Sales & Marketing Office',
+    content: '62 Rama Road\nNajafgarh Road Industrial Area\nNew Delhi - 110015, India',
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+    )
+  },
+  {
+    title: 'Phone',
+    content: '+91 9643409644\n+91 9643409648\n+91 8299729601',
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+      </svg>
+    )
+  },
+  {
+    title: 'Email',
+    content: 'info@graspelectric.com\nexport@graspelectric.com\nhelp@graspelectric.com',
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+        <polyline points="22,6 12,13 2,6" />
+      </svg>
+    )
+  }
+];
+
+const Contact = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    company: '',
+    phone: '',
+    product: '',
+    message: ''
+  });
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log('Form submitted:', formData);
+    alert('Thank you for your inquiry. We will get back to you soon!');
+  };
+
+  return (
+    <>
+      <Navbar isVisible={true} />
+
+      <section className="page-hero">
+        <div className="page-hero-inner">
+          <div className="page-label">Contact Us</div>
+          <h1 className="page-title">Get In Touch</h1>
+          <p className="page-desc">
+            Have questions or need a custom enclosure solution? Our team is ready to help.
+          </p>
+        </div>
+      </section>
+
+      <section className="contact-page">
+        <div className="contact-page-inner">
+          <div className="contact-info-section">
+            <h2>Contact Information</h2>
+            <p className="contact-intro">
+              Grasp Electric Pvt. Ltd. (formerly Maharaja Plastic Industries) - India's leading manufacturer of Thermoplastic & Polycarbonate enclosures.
+            </p>
+            <div className="contact-info-grid">
+              {contactInfo.map((info, index) => (
+                <div key={index} className="contact-info-item">
+                  <div className="contact-info-icon">{info.icon}</div>
+                  <div className="contact-info-content">
+                    <h3>{info.title}</h3>
+                    <p>{info.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="contact-departments">
+              <h3>Department Contacts</h3>
+              <ul>
+                <li><strong>General Inquiries:</strong> info@graspelectric.com</li>
+                <li><strong>International/Export:</strong> export@graspelectric.com</li>
+                <li><strong>Customer Support:</strong> help@graspelectric.com</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="contact-form-section">
+            <h2>Send Us a Message</h2>
+            <form onSubmit={handleSubmit} className="contact-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="name">Full Name *</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Your full name"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="email">Email Address *</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="your@email.com"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="company">Company Name</label>
+                  <input
+                    type="text"
+                    id="company"
+                    name="company"
+                    value={formData.company}
+                    onChange={handleChange}
+                    placeholder="Your company"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="phone">Phone Number</label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label htmlFor="product">Product Interest</label>
+                <select
+                  id="product"
+                  name="product"
+                  value={formData.product}
+                  onChange={handleChange}
+                >
+                  <option value="">Select a product category</option>
+                  <option value="hinged">Inbuilt Hinged Enclosures</option>
+                  <option value="plain-wall">Plain Wall Industrial Enclosures</option>
+                  <option value="modular">Modular Panel Enclosures</option>
+                  <option value="junction">Junction & Termination Boxes</option>
+                  <option value="distribution">Power Distribution Boxes</option>
+                  <option value="external">Plain Wall Enclosures with External Mounting</option>
+                  <option value="electronics">Electronics, Electrical & Automation Enclosures</option>
+                  <option value="accessories">Standard Accessories</option>
+                  <option value="custom">Custom Solutions</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="message">Message *</label>
+                <textarea
+                  id="message"
+                  name="message"
+                  value={formData.message}
+                  onChange={handleChange}
+                  placeholder="Tell us about your requirements..."
+                  rows="5"
+                  required
+                ></textarea>
+              </div>
+              <button type="submit" className="form-submit">
+                Send Message
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 2L11 13" />
+                  <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                </svg>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+    </>
+  );
+};
+
+export default Contact;
