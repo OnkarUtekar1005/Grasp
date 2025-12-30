@@ -6,7 +6,9 @@
       "Bash(npm run build:*)",
       "WebFetch(domain:www.graspelectric.com)",
       "Bash(grep:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)"
     ]
   }
 }

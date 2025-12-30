@@ -1,17 +1,62 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Navbar, Footer } from '../components';
 import { productAPI, categoryAPI } from '../services';
 
 const Products = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState('grid');
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    categories: [],
+    ipRatings: [],
+    materials: [],
+    mountingTypes: [],
+    priceRange: { min: '', max: '' },
+    inStockOnly: false,
+    featuredOnly: false
+  });
+
+
+  // Extract unique filter options from products
+  const filterOptions = useMemo(() => {
+    const ipRatings = new Set();
+    const materials = new Set();
+    const mountingTypes = new Set();
+    let minPrice = Infinity;
+    let maxPrice = 0;
+
+    products.forEach(product => {
+      if (product.specs) {
+        if (product.specs.protection) {
+          ipRatings.add(product.specs.protection);
+        }
+        if (product.specs.material) {
+          materials.add(product.specs.material);
+        }
+        if (product.specs.mounting) {
+          mountingTypes.add(product.specs.mounting);
+        }
+      }
+      if (product.price) {
+        minPrice = Math.min(minPrice, product.price);
+        maxPrice = Math.max(maxPrice, product.price);
+      }
+    });
+
+    return {
+      ipRatings: Array.from(ipRatings).sort(),
+      materials: Array.from(materials).sort(),
+      mountingTypes: Array.from(mountingTypes).sort(),
+      priceRange: { min: minPrice === Infinity ? 0 : minPrice, max: maxPrice }
+    };
+  }, [products]);
 
   // Fetch initial data
   useEffect(() => {
@@ -23,6 +68,12 @@ const Products = () => {
         ]);
         setProducts(productsData.products || productsData);
         setCategories(categoriesData);
+
+        // Check URL for initial category filter
+        const categoryParam = searchParams.get('category');
+        if (categoryParam) {
+          setFilters(prev => ({ ...prev, categories: [categoryParam] }));
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -31,58 +82,117 @@ const Products = () => {
     };
 
     fetchData();
-  }, []);
+  }, [searchParams]);
 
-  // Debounced search
-  const handleSearch = useCallback(async (query, category = selectedCategory) => {
-    if (!query.trim() && !category) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
+  // Filter and sort products
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(product =>
+        product.name.toLowerCase().includes(query) ||
+        product.description?.toLowerCase().includes(query) ||
+        product.code?.toLowerCase().includes(query)
+      );
     }
 
-    setIsSearching(true);
-    try {
-      const results = await productAPI.search(query, { category });
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
+    // Category filter
+    if (filters.categories.length > 0) {
+      const categoryIds = categories
+        .filter(cat => filters.categories.includes(cat.slug))
+        .map(cat => cat.id);
+      result = result.filter(product => categoryIds.includes(product.categoryId));
     }
-  }, [selectedCategory]);
 
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery || selectedCategory) {
-        handleSearch(searchQuery, selectedCategory);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, selectedCategory, handleSearch]);
-
-  // Handle category filter change
-  const handleCategoryChange = (categorySlug) => {
-    setSelectedCategory(categorySlug);
-    if (!searchQuery && !categorySlug) {
-      setSearchResults([]);
+    // IP Rating filter
+    if (filters.ipRatings.length > 0) {
+      result = result.filter(product =>
+        product.specs?.protection && filters.ipRatings.includes(product.specs.protection)
+      );
     }
+
+    // Material filter
+    if (filters.materials.length > 0) {
+      result = result.filter(product =>
+        product.specs?.material && filters.materials.includes(product.specs.material)
+      );
+    }
+
+    // Mounting type filter
+    if (filters.mountingTypes.length > 0) {
+      result = result.filter(product =>
+        product.specs?.mounting && filters.mountingTypes.includes(product.specs.mounting)
+      );
+    }
+
+    // Price range filter
+    if (filters.priceRange.min !== '' || filters.priceRange.max !== '') {
+      result = result.filter(product => {
+        if (!product.price) return filters.priceRange.min === '' && filters.priceRange.max === '';
+        const min = filters.priceRange.min !== '' ? parseFloat(filters.priceRange.min) : 0;
+        const max = filters.priceRange.max !== '' ? parseFloat(filters.priceRange.max) : Infinity;
+        return product.price >= min && product.price <= max;
+      });
+    }
+
+    // In stock filter
+    if (filters.inStockOnly) {
+      result = result.filter(product => product.inStock);
+    }
+
+    // Featured filter
+    if (filters.featuredOnly) {
+      result = result.filter(product => product.featured);
+    }
+
+    // Sort by name by default
+    result.sort((a, b) => a.name.localeCompare(b.name));
+
+    return result;
+  }, [products, categories, searchQuery, filters]);
+
+  // Toggle filter value
+  const toggleFilter = (filterType, value) => {
+    setFilters(prev => {
+      const current = prev[filterType];
+      const updated = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value];
+      return { ...prev, [filterType]: updated };
+    });
   };
 
-  // Clear search
-  const clearSearch = () => {
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilters({
+      categories: [],
+      ipRatings: [],
+      materials: [],
+      mountingTypes: [],
+      priceRange: { min: '', max: '' },
+      inStockOnly: false,
+      featuredOnly: false
+    });
     setSearchQuery('');
-    setSelectedCategory('');
-    setSearchResults([]);
+    setSearchParams({});
   };
 
-  // Determine which products to display
-  const displayProducts = searchQuery || selectedCategory ? searchResults : products;
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    count += filters.categories.length;
+    count += filters.ipRatings.length;
+    count += filters.materials.length;
+    count += filters.mountingTypes.length;
+    if (filters.priceRange.min !== '' || filters.priceRange.max !== '') count++;
+    if (filters.inStockOnly) count++;
+    if (filters.featuredOnly) count++;
+    return count;
+  }, [filters]);
 
-  // Helper to safely get array from specs/features (handles JSON strings)
+  // Helper to safely get array from specs/features
   const getArray = (value) => {
     if (!value) return [];
     if (Array.isArray(value)) return value;
@@ -172,7 +282,6 @@ const Products = () => {
       )
     };
 
-    // Default SVG for products without specific design
     const defaultSVG = (
       <svg viewBox="0 0 120 120">
         <g transform="translate(20, 15)">
@@ -184,6 +293,22 @@ const Products = () => {
     );
 
     return svgMap[id] || defaultSVG;
+  };
+
+  // Filter Section Component
+  const FilterSection = ({ title, children, defaultOpen = true }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+    return (
+      <div className="filter-section">
+        <button className="filter-section-header" onClick={() => setIsOpen(!isOpen)}>
+          <span>{title}</span>
+          <svg className={`filter-chevron ${isOpen ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+        {isOpen && <div className="filter-section-content">{children}</div>}
+      </div>
+    );
   };
 
   return (
@@ -200,10 +325,10 @@ const Products = () => {
         </div>
       </section>
 
-      {/* Search Section */}
-      <section className="products-search-section">
-        <div className="products-search-inner">
-          <div className="search-container">
+      {/* Search and Controls Bar */}
+      <section className="products-controls-section">
+        <div className="products-controls-inner">
+          <div className="search-container-main">
             <div className="search-input-wrapper">
               <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8" />
@@ -212,142 +337,407 @@ const Products = () => {
               <input
                 type="text"
                 className="search-input"
-                placeholder="Search products by name, category, or specifications..."
+                placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              {(searchQuery || selectedCategory) && (
-                <button className="search-clear" onClick={clearSearch}>
+              {searchQuery && (
+                <button className="search-clear" onClick={() => setSearchQuery('')}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               )}
-              {isSearching && <div className="search-spinner" />}
             </div>
+          </div>
 
+          <div className="controls-right">
+            {/* Mobile Filter Toggle */}
             <button
-              className={`filter-toggle ${showFilters ? 'active' : ''}`}
-              onClick={() => setShowFilters(!showFilters)}
+              className="mobile-filter-toggle"
+              onClick={() => setShowMobileFilters(true)}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
               </svg>
               Filters
+              {activeFilterCount > 0 && <span className="filter-count">{activeFilterCount}</span>}
             </button>
+
+            {/* View Toggle */}
+            <div className="view-toggle">
+              <button
+                className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                onClick={() => setViewMode('grid')}
+                title="Grid View"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                </svg>
+              </button>
+              <button
+                className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+                onClick={() => setViewMode('list')}
+                title="List View"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+            </div>
           </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="filters-panel">
-              <div className="filter-group">
-                <label>Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                >
-                  <option value="">All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat.slug} value={cat.slug}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* Search Results Info */}
-          {(searchQuery || selectedCategory) && (
-            <div className="search-results-info">
-              {isSearching ? (
-                <span>Searching...</span>
-              ) : (
-                <span>
-                  Found <strong>{searchResults.length}</strong> product{searchResults.length !== 1 ? 's' : ''}
-                  {searchQuery && <> for "{searchQuery}"</>}
-                  {selectedCategory && <> in {categories.find(c => c.slug === selectedCategory)?.name}</>}
-                </span>
-              )}
-            </div>
-          )}
         </div>
       </section>
 
-      {/* Products Grid */}
-      <section className="products-page">
-        <div className="products-page-inner">
-          {loading ? (
-            <div className="products-loading">
-              <div className="loading-spinner" />
-              <p>Loading products...</p>
-            </div>
-          ) : displayProducts.length === 0 ? (
-            <div className="products-empty">
-              {searchQuery || selectedCategory ? (
-                <>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="M21 21l-4.35-4.35" />
-                    <path d="M8 8l6 6M14 8l-6 6" />
+      {/* Main Content with Sidebar */}
+      <section className="products-main-section">
+        <div className="products-main-inner">
+          {/* Filter Sidebar */}
+          <aside className={`filter-sidebar ${showMobileFilters ? 'mobile-open' : ''}`}>
+            <div className="filter-sidebar-header">
+              <h3>Filters</h3>
+              <div className="filter-header-actions">
+                {activeFilterCount > 0 && (
+                  <button className="clear-filters-btn" onClick={clearAllFilters}>
+                    Clear All ({activeFilterCount})
+                  </button>
+                )}
+                <button className="close-filters-btn" onClick={() => setShowMobileFilters(false)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                  <h3>No products found</h3>
-                  <p>Try adjusting your search or filter to find what you're looking for.</p>
-                  <button className="btn-secondary" onClick={clearSearch}>Clear Search</button>
-                </>
-              ) : (
-                <>
-                  <h3>No products available</h3>
-                  <p>Check back soon for our product catalog.</p>
-                </>
-              )}
+                </button>
+              </div>
             </div>
-          ) : (
-            displayProducts.map((product) => (
-              <Link
-                to={`/products/${product.slug || product.id}`}
-                key={product.id}
-                className="product-detail-card"
-              >
-                <div className="product-detail-image">
-                  {product.image ? (
-                    <img src={product.image} alt={product.name} />
-                  ) : (
-                    renderProductSVG(product.id)
-                  )}
+
+            <div className="filter-sidebar-content">
+              {/* Categories */}
+              <FilterSection title="Categories">
+                <div className="filter-options">
+                  {categories.map(category => (
+                    <label key={category.slug} className="filter-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={filters.categories.includes(category.slug)}
+                        onChange={() => toggleFilter('categories', category.slug)}
+                      />
+                      <span className="checkmark"></span>
+                      <span className="filter-label">{category.name}</span>
+                      <span className="filter-count-badge">
+                        {products.filter(p => p.categoryId === category.id).length}
+                      </span>
+                    </label>
+                  ))}
                 </div>
-                <div className="product-detail-content">
-                  <div className="product-detail-code">{product.code || product.category}</div>
-                  <h2 className="product-detail-name">{product.name}</h2>
-                  <p className="product-detail-desc">{product.description || product.desc}</p>
-                  <div className="product-detail-specs">
-                    {getArray(product.specs).slice(0, 4).map((spec, index) => (
-                      <span key={index} className="product-spec-tag">{spec}</span>
+              </FilterSection>
+
+              {/* IP Rating */}
+              {filterOptions.ipRatings.length > 0 && (
+                <FilterSection title="IP Rating">
+                  <div className="filter-options">
+                    {filterOptions.ipRatings.map(rating => (
+                      <label key={rating} className="filter-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={filters.ipRatings.includes(rating)}
+                          onChange={() => toggleFilter('ipRatings', rating)}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="filter-label">{rating}</span>
+                      </label>
                     ))}
                   </div>
-                  {getArray(product.features).length > 0 && (
-                    <div className="product-detail-features">
-                      <h4>Key Features</h4>
-                      <ul>
-                        {getArray(product.features).slice(0, 4).map((feature, index) => (
-                          <li key={index}>{feature}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <div className="product-card-action">
-                    <span className="view-details">
-                      View Details
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                      </svg>
-                    </span>
+                </FilterSection>
+              )}
+
+              {/* Material */}
+              {filterOptions.materials.length > 0 && (
+                <FilterSection title="Material">
+                  <div className="filter-options">
+                    {filterOptions.materials.map(material => (
+                      <label key={material} className="filter-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={filters.materials.includes(material)}
+                          onChange={() => toggleFilter('materials', material)}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="filter-label">{material}</span>
+                      </label>
+                    ))}
+                  </div>
+                </FilterSection>
+              )}
+
+              {/* Mounting Type */}
+              {filterOptions.mountingTypes.length > 0 && (
+                <FilterSection title="Mounting Type">
+                  <div className="filter-options">
+                    {filterOptions.mountingTypes.map(type => (
+                      <label key={type} className="filter-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={filters.mountingTypes.includes(type)}
+                          onChange={() => toggleFilter('mountingTypes', type)}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="filter-label">{type}</span>
+                      </label>
+                    ))}
+                  </div>
+                </FilterSection>
+              )}
+
+              {/* Price Range */}
+              <FilterSection title="Price Range">
+                <div className="price-range-inputs">
+                  <div className="price-input-group">
+                    <span className="price-currency">₹</span>
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={filters.priceRange.min}
+                      onChange={(e) => setFilters(prev => ({
+                        ...prev,
+                        priceRange: { ...prev.priceRange, min: e.target.value }
+                      }))}
+                    />
+                  </div>
+                  <span className="price-separator">to</span>
+                  <div className="price-input-group">
+                    <span className="price-currency">₹</span>
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={filters.priceRange.max}
+                      onChange={(e) => setFilters(prev => ({
+                        ...prev,
+                        priceRange: { ...prev.priceRange, max: e.target.value }
+                      }))}
+                    />
                   </div>
                 </div>
-              </Link>
-            ))
+                {filterOptions.priceRange.max > 0 && (
+                  <div className="price-range-hint">
+                    Range: ₹{filterOptions.priceRange.min.toLocaleString()} - ₹{filterOptions.priceRange.max.toLocaleString()}
+                  </div>
+                )}
+              </FilterSection>
+
+              {/* Availability */}
+              <FilterSection title="Availability">
+                <div className="filter-options">
+                  <label className="filter-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters.inStockOnly}
+                      onChange={() => setFilters(prev => ({ ...prev, inStockOnly: !prev.inStockOnly }))}
+                    />
+                    <span className="checkmark"></span>
+                    <span className="filter-label">In Stock Only</span>
+                  </label>
+                  <label className="filter-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters.featuredOnly}
+                      onChange={() => setFilters(prev => ({ ...prev, featuredOnly: !prev.featuredOnly }))}
+                    />
+                    <span className="checkmark"></span>
+                    <span className="filter-label">Featured Products</span>
+                  </label>
+                </div>
+              </FilterSection>
+            </div>
+
+            {/* Mobile Apply Button */}
+            <div className="filter-sidebar-footer">
+              <button className="apply-filters-btn" onClick={() => setShowMobileFilters(false)}>
+                Show {filteredProducts.length} Results
+              </button>
+            </div>
+          </aside>
+
+          {/* Mobile Overlay */}
+          {showMobileFilters && (
+            <div className="filter-overlay" onClick={() => setShowMobileFilters(false)} />
           )}
+
+          {/* Products Grid */}
+          <div className="products-content">
+            {/* Active Filters Tags */}
+            {activeFilterCount > 0 && (
+              <div className="active-filters-bar">
+                <span className="active-filters-label">Active Filters:</span>
+                <div className="active-filters-tags">
+                  {filters.categories.map(slug => {
+                    const cat = categories.find(c => c.slug === slug);
+                    return cat && (
+                      <span key={slug} className="filter-tag">
+                        {cat.name}
+                        <button onClick={() => toggleFilter('categories', slug)}>×</button>
+                      </span>
+                    );
+                  })}
+                  {filters.ipRatings.map(rating => (
+                    <span key={rating} className="filter-tag">
+                      {rating}
+                      <button onClick={() => toggleFilter('ipRatings', rating)}>×</button>
+                    </span>
+                  ))}
+                  {filters.materials.map(material => (
+                    <span key={material} className="filter-tag">
+                      {material}
+                      <button onClick={() => toggleFilter('materials', material)}>×</button>
+                    </span>
+                  ))}
+                  {filters.mountingTypes.map(type => (
+                    <span key={type} className="filter-tag">
+                      {type}
+                      <button onClick={() => toggleFilter('mountingTypes', type)}>×</button>
+                    </span>
+                  ))}
+                  {(filters.priceRange.min !== '' || filters.priceRange.max !== '') && (
+                    <span className="filter-tag">
+                      Price: ₹{filters.priceRange.min || '0'} - ₹{filters.priceRange.max || '∞'}
+                      <button onClick={() => setFilters(prev => ({
+                        ...prev,
+                        priceRange: { min: '', max: '' }
+                      }))}>×</button>
+                    </span>
+                  )}
+                  {filters.inStockOnly && (
+                    <span className="filter-tag">
+                      In Stock
+                      <button onClick={() => setFilters(prev => ({ ...prev, inStockOnly: false }))}>×</button>
+                    </span>
+                  )}
+                  {filters.featuredOnly && (
+                    <span className="filter-tag">
+                      Featured
+                      <button onClick={() => setFilters(prev => ({ ...prev, featuredOnly: false }))}>×</button>
+                    </span>
+                  )}
+                </div>
+                <button className="clear-all-btn" onClick={clearAllFilters}>Clear All</button>
+              </div>
+            )}
+
+            {/* Results Count */}
+            <div className="results-header">
+              <span className="results-count">
+                Showing <strong>{filteredProducts.length}</strong> of <strong>{products.length}</strong> products
+              </span>
+            </div>
+
+            {/* Products Display */}
+            {loading ? (
+              <div className="products-loading">
+                <div className="loading-spinner" />
+                <p>Loading products...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="products-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M21 21l-4.35-4.35" />
+                  <path d="M8 8l6 6M14 8l-6 6" />
+                </svg>
+                <h3>No products found</h3>
+                <p>Try adjusting your filters or search to find what you're looking for.</p>
+                <button className="btn-secondary" onClick={clearAllFilters}>Clear All Filters</button>
+              </div>
+            ) : (
+              <div className={`products-grid-container ${viewMode}`}>
+                {viewMode === 'grid' ? (
+                  filteredProducts.map((product) => (
+                    <Link
+                      to={`/products/${product.slug || product.id}`}
+                      key={product.id}
+                      className="product-grid-card"
+                    >
+                      <div className="product-grid-image">
+                        {product.image ? (
+                          <img src={product.image} alt={product.name} />
+                        ) : (
+                          renderProductSVG(product.id % 6 + 1)
+                        )}
+                        {product.featured && <span className="product-featured-badge">Featured</span>}
+                        {!product.inStock && <span className="product-stock-badge">Out of Stock</span>}
+                      </div>
+                      <div className="product-grid-content">
+                        <div className="product-grid-code">{product.code || product.category}</div>
+                        <h3 className="product-grid-name">{product.name}</h3>
+                        <p className="product-grid-desc">{product.description || product.desc}</p>
+                        {product.price && (
+                          <div className="product-grid-price">₹{product.price.toLocaleString()}</div>
+                        )}
+                        <span className="product-grid-link">
+                          View Details
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                          </svg>
+                        </span>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  filteredProducts.map((product) => (
+                    <Link
+                      to={`/products/${product.slug || product.id}`}
+                      key={product.id}
+                      className="product-detail-card"
+                    >
+                      <div className="product-detail-image">
+                        {product.image ? (
+                          <img src={product.image} alt={product.name} />
+                        ) : (
+                          renderProductSVG(product.id % 6 + 1)
+                        )}
+                      </div>
+                      <div className="product-detail-content">
+                        <div className="product-detail-code">{product.code || product.category}</div>
+                        <h2 className="product-detail-name">{product.name}</h2>
+                        <p className="product-detail-desc">{product.description || product.desc}</p>
+                        <div className="product-detail-specs">
+                          {getArray(product.specs).slice(0, 4).map((spec, index) => (
+                            <span key={index} className="product-spec-tag">{spec}</span>
+                          ))}
+                        </div>
+                        {getArray(product.features).length > 0 && (
+                          <div className="product-detail-features">
+                            <h4>Key Features</h4>
+                            <ul>
+                              {getArray(product.features).slice(0, 4).map((feature, index) => (
+                                <li key={index}>{feature}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        <div className="product-card-footer">
+                          {product.price && (
+                            <span className="product-price">₹{product.price.toLocaleString()}</span>
+                          )}
+                          <span className="view-details">
+                            View Details
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

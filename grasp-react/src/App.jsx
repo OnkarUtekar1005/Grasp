@@ -2,7 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider, ProductProvider } from './contexts';
 import { ProtectedRoute, ScrollToTop } from './components';
 import { AdminLayout } from './layouts';
-import { Home, Products, ProductDetail, CategoryProducts, About, Contact } from './pages';
+import { Home, Products, ProductDetail, CategoryProducts, Gallery, About, Contact } from './pages';
+import HomeElectrical from './pages/HomeElectrical';
 import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm } from './admin/pages';
 import './styles/index.css';
 
@@ -24,9 +25,11 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
+            <Route path="/home-v2" element={<HomeElectrical />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/:slug" element={<ProductDetail />} />
             <Route path="/products/category/:slug" element={<CategoryProducts />} />
+            <Route path="/gallery" element={<Gallery />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
 
