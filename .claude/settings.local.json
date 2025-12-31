@@ -8,7 +8,9 @@
       "Bash(grep:*)",
       "Bash(ls:*)",
       "Bash(find:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git -C /mnt/d/Projects/Grasp log --oneline)",
+      "Bash(npm init:*)"
     ]
   }
 }

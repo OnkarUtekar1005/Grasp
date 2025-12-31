@@ -1,0 +1,341 @@
+// Prisma Schema for Grasp Electric Backend
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ADMIN ====================
+
+model AdminUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  sessions AdminSession[]
+
+  @@map("admin_users")
+}
+
+model AdminSession {
+  id        String   @id @default(uuid())
+  adminId   String   @map("admin_user_id")
+  tokenHash String   @unique @map("token_hash")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+// ==================== CATEGORIES ====================
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  code        String?
+  description String?
+  imageUrl    String?  @map("image_url")
+  isFeatured  Boolean  @default(false) @map("is_featured")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  specs    CategorySpec[]
+  products Product[]
+
+  @@index([isFeatured])
+  @@index([sortOrder])
+  @@map("categories")
+}
+
+model CategorySpec {
+  id         String @id @default(uuid())
+  categoryId String @map("category_id")
+  specValue  String @map("spec_value")
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@map("category_specs")
+}
+
+// ==================== PRODUCTS ====================
+
+model Product {
+  id              String  @id @default(uuid())
+  categoryId      String  @map("category_id")
+  name            String
+  slug            String  @unique
+  code            String?
+  description     String?
+  fullDescription String? @map("full_description")
+
+  // Fixed specifications
+  specMaterial         String? @map("spec_material")
+  specIpRating         String? @map("spec_ip_rating")
+  specFlammability     String? @map("spec_flammability")
+  specColor            String? @map("spec_color")
+  specDoorType         String? @map("spec_door_type")
+  specMounting         String? @map("spec_mounting")
+  specTemperatureRange String? @map("spec_temperature_range")
+
+  // Status
+  isFeatured Boolean @default(false) @map("is_featured")
+  isActive   Boolean @default(true) @map("is_active")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  category     Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  variants     ProductVariant[]
+  images       ProductImage[]
+  documents    ProductDocument[]
+  features     ProductFeature[]
+  dynamicSpecs ProductDynamicSpec[]
+  quoteItems   QuoteRequestItem[]
+
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@index([isActive])
+  @@map("products")
+}
+
+model ProductVariant {
+  id                String   @id @default(uuid())
+  productId         String   @map("product_id")
+  sku               String   @unique
+  name              String
+  specDimensions    String?  @map("spec_dimensions")
+  specWeight        String?  @map("spec_weight")
+  stockQuantity     Int      @default(0) @map("stock_quantity")
+  lowStockThreshold Int      @default(10) @map("low_stock_threshold")
+  isActive          Boolean  @default(true) @map("is_active")
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  product    Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  images     ProductImage[]
+  quoteItems QuoteRequestItem[]
+
+  @@index([productId])
+  @@index([stockQuantity])
+  @@map("product_variants")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  variantId String?  @map("variant_id")
+  imageUrl  String   @map("image_url")
+  altText   String?  @map("alt_text")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([variantId])
+  @@map("product_images")
+}
+
+model ProductDocument {
+  id           String       @id @default(uuid())
+  productId    String       @map("product_id")
+  name         String
+  documentUrl  String       @map("document_url")
+  documentType DocumentType @default(OTHER) @map("document_type")
+  fileSizeBytes Int?        @map("file_size_bytes")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([documentType])
+  @@map("product_documents")
+}
+
+model ProductFeature {
+  id          String @id @default(uuid())
+  productId   String @map("product_id")
+  featureText String @map("feature_text")
+  sortOrder   Int    @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_features")
+}
+
+model ProductDynamicSpec {
+  id        String @id @default(uuid())
+  productId String @map("product_id")
+  specKey   String @map("spec_key")
+  specValue String @map("spec_value")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, specKey])
+  @@index([productId])
+  @@map("product_dynamic_specs")
+}
+
+// ==================== QUOTE REQUESTS ====================
+
+model QuoteRequest {
+  id            String      @id @default(uuid())
+  requestNumber String      @unique @map("request_number")
+  status        QuoteStatus @default(PENDING)
+
+  // Customer info
+  companyName String  @map("company_name")
+  contactName String  @map("contact_name")
+  email       String
+  phone       String?
+  message     String?
+
+  // Quote details
+  quotedAt         DateTime? @map("quoted_at")
+  quoteValidUntil  DateTime? @map("quote_valid_until")
+  totalQuotedAmount Decimal? @map("total_quoted_amount") @db.Decimal(12, 2)
+  currency         String    @default("INR")
+
+  // Internal
+  internalNotes String? @map("internal_notes")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items         QuoteRequestItem[]
+  statusHistory QuoteStatusHistory[]
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt(sort: Desc)])
+  @@map("quote_requests")
+}
+
+model QuoteRequestItem {
+  id             String   @id @default(uuid())
+  quoteRequestId String   @map("quote_request_id")
+  productId      String   @map("product_id")
+  variantId      String?  @map("variant_id")
+  quantity       Int      @default(1)
+  quotedUnitPrice Decimal? @map("quoted_unit_price") @db.Decimal(12, 2)
+  quotedTotal    Decimal? @map("quoted_total") @db.Decimal(12, 2)
+  notes          String?
+
+  quoteRequest QuoteRequest    @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([quoteRequestId])
+  @@index([productId])
+  @@map("quote_request_items")
+}
+
+model QuoteStatusHistory {
+  id             String       @id @default(uuid())
+  quoteRequestId String       @map("quote_request_id")
+  oldStatus      QuoteStatus? @map("old_status")
+  newStatus      QuoteStatus  @map("new_status")
+  notes          String?
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+
+  @@index([quoteRequestId])
+  @@map("quote_status_history")
+}
+
+// ==================== INQUIRIES ====================
+
+model Inquiry {
+  id          String        @id @default(uuid())
+  inquiryType InquiryType   @default(GENERAL) @map("inquiry_type")
+  companyName String?       @map("company_name")
+  contactName String        @map("contact_name")
+  email       String
+  phone       String?
+  subject     String?
+  message     String
+  status      InquiryStatus @default(NEW)
+  internalNotes String?     @map("internal_notes")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([inquiryType])
+  @@index([email])
+  @@index([createdAt(sort: Desc)])
+  @@map("inquiries")
+}
+
+// ==================== SETTINGS ====================
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// ==================== ENUMS ====================
+
+enum QuoteStatus {
+  PENDING
+  REVIEWED
+  QUOTED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum InquiryStatus {
+  NEW
+  READ
+  REPLIED
+  CLOSED
+}
+
+enum InquiryType {
+  GENERAL
+  SUPPORT
+  PARTNERSHIP
+  OTHER
+}
+
+enum DocumentType {
+  DATASHEET
+  MANUAL
+  CERTIFICATE
+  CAD
+  OTHER
+}

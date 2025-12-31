@@ -1,41 +1,108 @@
 /**
- * API Service - Base for backend integration
+ * API Service - Backend Integration
  *
- * This service will handle all API calls to the backend.
- * Currently uses mock data, but structured for easy backend integration.
- *
- * When connecting to a real backend:
- * 1. Update API_BASE_URL to your backend URL
- * 2. Remove mock implementations
- * 3. Uncomment the actual fetch calls
+ * This service handles all API calls to the Grasp Electric backend.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
-// Helper function for API calls
+/**
+ * Helper function for API calls
+ */
 const apiCall = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  const defaultHeaders = {
+    'Content-Type': 'application/json',
   };
 
   // Add auth token if available
   const token = localStorage.getItem('authToken');
   if (token) {
-    defaultOptions.headers['Authorization'] = `Bearer ${token}`;
+    defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { ...defaultOptions, ...options });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Network error' }));
-    throw new Error(error.message || 'Something went wrong');
+  // Don't set Content-Type for FormData (browser will set it with boundary)
+  if (options.body instanceof FormData) {
+    delete defaultHeaders['Content-Type'];
   }
 
-  return response.json();
+  const config = {
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...options.headers,
+    },
+  };
+
+  try {
+    const response = await fetch(url, config);
+
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return { success: true };
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(data.error?.message || 'Something went wrong');
+      error.code = data.error?.code;
+      error.details = data.error?.details;
+      error.status = response.status;
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (error.status) {
+      throw error;
+    }
+    // Network error
+    const networkError = new Error('Network error. Please check your connection.');
+    networkError.code = 'NETWORK_ERROR';
+    throw networkError;
+  }
+};
+
+// ============================================
+// AUTH API SERVICES
+// ============================================
+
+export const authAPI = {
+  /**
+   * Admin login
+   */
+  login: async (email, password) => {
+    return apiCall('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
+  /**
+   * Admin logout
+   */
+  logout: async () => {
+    return apiCall('/auth/logout', { method: 'POST' });
+  },
+
+  /**
+   * Get current admin profile
+   */
+  me: async () => {
+    return apiCall('/auth/me');
+  },
+
+  /**
+   * Change password
+   */
+  changePassword: async (currentPassword, newPassword) => {
+    return apiCall('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
 };
 
 // ============================================
@@ -44,208 +111,138 @@ const apiCall = async (endpoint, options = {}) => {
 
 export const productAPI = {
   /**
-   * Search products by query
-   * @param {string} query - Search query
-   * @param {object} filters - Optional filters (category, priceRange, etc.)
-   * @returns {Promise<Array>} - Array of matching products
+   * Get all products with filters and pagination
    */
-  search: async (query, filters = {}) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/products/search?q=${encodeURIComponent(query)}&${new URLSearchParams(filters)}`);
-
-    // Mock implementation - simulates backend search
-    const { productsData: products } = await import('../data/products');
-    const searchLower = query.toLowerCase();
-
-    let results = products.filter(product =>
-      product.name.toLowerCase().includes(searchLower) ||
-      product.description.toLowerCase().includes(searchLower) ||
-      product.category.toLowerCase().includes(searchLower) ||
-      product.specs?.some(spec => spec.toLowerCase().includes(searchLower))
-    );
-
-    // Apply category filter if provided
-    if (filters.category) {
-      results = results.filter(p => p.categorySlug === filters.category);
-    }
-
-    // Apply price filter if provided
-    if (filters.minPrice) {
-      results = results.filter(p => p.price >= filters.minPrice);
-    }
-    if (filters.maxPrice) {
-      results = results.filter(p => p.price <= filters.maxPrice);
-    }
-
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    return results;
+  getAll: async (options = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(options).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, value);
+      }
+    });
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiCall(`/products${query}`);
   },
 
   /**
-   * Get all products with optional pagination
-   * @param {object} options - { page, limit, sortBy, order }
-   * @returns {Promise<object>} - { products, total, page, totalPages }
+   * Get featured products
    */
-  getAll: async (options = {}) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/products?${new URLSearchParams(options)}`);
+  getFeatured: async (limit = 6) => {
+    return apiCall(`/products/featured?limit=${limit}`);
+  },
 
-    const { productsData: products } = await import('../data/products');
-    const { page = 1, limit = 12, sortBy = 'name', order = 'asc' } = options;
-
-    // Sort products
-    const sorted = [...products].sort((a, b) => {
-      if (order === 'asc') {
-        return a[sortBy] > b[sortBy] ? 1 : -1;
-      }
-      return a[sortBy] < b[sortBy] ? 1 : -1;
-    });
-
-    // Paginate
-    const start = (page - 1) * limit;
-    const paginated = sorted.slice(start, start + limit);
-
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    return {
-      products: paginated,
-      total: products.length,
-      page,
-      totalPages: Math.ceil(products.length / limit)
-    };
+  /**
+   * Search products
+   */
+  search: async (query, options = {}) => {
+    const params = new URLSearchParams({ q: query, ...options });
+    return apiCall(`/products/search?${params.toString()}`);
   },
 
   /**
    * Get single product by slug
-   * @param {string} slug - Product slug
-   * @returns {Promise<object>} - Product details
    */
   getBySlug: async (slug) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/products/${slug}`);
-
-    const { productsData: products } = await import('../data/products');
-    const product = products.find(p => p.slug === slug);
-
-    await new Promise(resolve => setTimeout(resolve, 150));
-
-    if (!product) {
-      throw new Error('Product not found');
-    }
-
-    return product;
+    return apiCall(`/products/${slug}`);
   },
 
   /**
    * Get products by category
-   * @param {string} categorySlug - Category slug
-   * @returns {Promise<Array>} - Array of products in category
    */
-  getByCategory: async (categorySlug) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/products/category/${categorySlug}`);
-
-    const { productsData: products } = await import('../data/products');
-    const filtered = products.filter(p => p.categorySlug === categorySlug);
-
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    return filtered;
+  getByCategory: async (categorySlug, options = {}) => {
+    const params = new URLSearchParams(options);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiCall(`/products/category/${categorySlug}${query}`);
   },
 
   /**
    * Create new product (Admin only)
-   * @param {FormData} formData - Product data with images
-   * @returns {Promise<object>} - Created product
    */
-  create: async (formData) => {
-    // TODO: Replace with actual API call
-    // return apiCall('/products', {
-    //   method: 'POST',
-    //   headers: {}, // Let browser set content-type for FormData
-    //   body: formData
-    // });
-
-    // Mock implementation
-    const productData = Object.fromEntries(formData.entries());
-    console.log('Creating product:', productData);
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    return {
-      id: Date.now(),
-      ...productData,
-      slug: productData.name.toLowerCase().replace(/\s+/g, '-'),
-      createdAt: new Date().toISOString()
-    };
+  create: async (data) => {
+    return apiCall('/products', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   /**
    * Update existing product (Admin only)
-   * @param {string} id - Product ID
-   * @param {FormData} formData - Updated product data
-   * @returns {Promise<object>} - Updated product
    */
-  update: async (id, formData) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/products/${id}`, {
-    //   method: 'PUT',
-    //   headers: {},
-    //   body: formData
-    // });
-
-    const productData = Object.fromEntries(formData.entries());
-    console.log('Updating product:', id, productData);
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    return {
-      id,
-      ...productData,
-      updatedAt: new Date().toISOString()
-    };
+  update: async (id, data) => {
+    return apiCall(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
 
   /**
    * Delete product (Admin only)
-   * @param {string} id - Product ID
-   * @returns {Promise<void>}
    */
   delete: async (id) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/products/${id}`, { method: 'DELETE' });
-
-    console.log('Deleting product:', id);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    return { success: true };
+    return apiCall(`/products/${id}`, { method: 'DELETE' });
   },
 
-  /**
-   * Upload product images (Admin only)
-   * @param {string} productId - Product ID
-   * @param {FileList} files - Image files to upload
-   * @returns {Promise<Array>} - Array of uploaded image URLs
-   */
+  // Variants
+  addVariant: async (productId, data) => {
+    return apiCall(`/products/${productId}/variants`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateVariant: async (productId, variantId, data) => {
+    return apiCall(`/products/${productId}/variants/${variantId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteVariant: async (productId, variantId) => {
+    return apiCall(`/products/${productId}/variants/${variantId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Images
   uploadImages: async (productId, files) => {
-    // TODO: Replace with actual API call
-    // const formData = new FormData();
-    // Array.from(files).forEach(file => formData.append('images', file));
-    // return apiCall(`/products/${productId}/images`, {
-    //   method: 'POST',
-    //   headers: {},
-    //   body: formData
-    // });
+    const formData = new FormData();
+    Array.from(files).forEach((file) => formData.append('images', file));
+    return apiCall(`/products/${productId}/images`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
 
-    // Mock implementation - creates object URLs for preview
-    const imageUrls = Array.from(files).map(file => URL.createObjectURL(file));
+  updateImage: async (productId, imageId, data) => {
+    return apiCall(`/products/${productId}/images/${imageId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+  deleteImage: async (productId, imageId) => {
+    return apiCall(`/products/${productId}/images/${imageId}`, {
+      method: 'DELETE',
+    });
+  },
 
-    return imageUrls;
-  }
+  // Documents
+  uploadDocument: async (productId, file, name, documentType) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    if (name) formData.append('name', name);
+    if (documentType) formData.append('documentType', documentType);
+    return apiCall(`/products/${productId}/documents`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  deleteDocument: async (productId, docId) => {
+    return apiCall(`/products/${productId}/documents/${docId}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // ============================================
@@ -255,92 +252,56 @@ export const productAPI = {
 export const categoryAPI = {
   /**
    * Get all categories
-   * @returns {Promise<Array>} - Array of categories
    */
   getAll: async () => {
-    // TODO: Replace with actual API call
-    // return apiCall('/categories');
-
-    const { categoriesData } = await import('../data/products');
-    await new Promise(resolve => setTimeout(resolve, 150));
-
-    return categoriesData;
+    return apiCall('/categories');
   },
 
   /**
    * Get single category by slug
-   * @param {string} slug - Category slug
-   * @returns {Promise<object>} - Category details
    */
   getBySlug: async (slug) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/categories/${slug}`);
-
-    const { categoriesData } = await import('../data/products');
-    const category = categoriesData.find(c => c.slug === slug);
-
-    if (!category) {
-      throw new Error('Category not found');
-    }
-
-    return category;
+    return apiCall(`/categories/${slug}`);
   },
 
   /**
    * Create category (Admin only)
-   * @param {object} data - Category data
-   * @returns {Promise<object>} - Created category
    */
   create: async (data) => {
-    // TODO: Replace with actual API call
-    // return apiCall('/categories', {
-    //   method: 'POST',
-    //   body: JSON.stringify(data)
-    // });
-
-    console.log('Creating category:', data);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    return {
-      id: Date.now(),
-      ...data,
-      slug: data.name.toLowerCase().replace(/\s+/g, '-')
-    };
+    return apiCall('/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   /**
    * Update category (Admin only)
-   * @param {string} id - Category ID
-   * @param {object} data - Updated category data
-   * @returns {Promise<object>} - Updated category
    */
   update: async (id, data) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/categories/${id}`, {
-    //   method: 'PUT',
-    //   body: JSON.stringify(data)
-    // });
-
-    console.log('Updating category:', id, data);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    return { id, ...data };
+    return apiCall(`/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
 
   /**
    * Delete category (Admin only)
-   * @param {string} id - Category ID
-   * @returns {Promise<void>}
    */
   delete: async (id) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/categories/${id}`, { method: 'DELETE' });
+    return apiCall(`/categories/${id}`, { method: 'DELETE' });
+  },
 
-    console.log('Deleting category:', id);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    return { success: true };
-  }
+  /**
+   * Upload category image (Admin only)
+   */
+  uploadImage: async (id, file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return apiCall(`/categories/${id}/image`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
 };
 
 // ============================================
@@ -349,47 +310,158 @@ export const categoryAPI = {
 
 export const inquiryAPI = {
   /**
-   * Submit contact/inquiry form
-   * @param {object} data - Form data
-   * @returns {Promise<object>} - Submission result
+   * Submit contact/inquiry form (Public)
    */
   submit: async (data) => {
-    // TODO: Replace with actual API call
-    // return apiCall('/inquiries', {
-    //   method: 'POST',
-    //   body: JSON.stringify(data)
-    // });
-
-    console.log('Submitting inquiry:', data);
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    return {
-      success: true,
-      message: 'Thank you for your inquiry. We will get back to you soon!'
-    };
+    return apiCall('/inquiries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   /**
    * Get all inquiries (Admin only)
-   * @param {object} options - { page, limit, status }
-   * @returns {Promise<object>} - { inquiries, total }
    */
   getAll: async (options = {}) => {
-    // TODO: Replace with actual API call
-    // return apiCall(`/inquiries?${new URLSearchParams(options)}`);
+    const params = new URLSearchParams(options);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiCall(`/inquiries${query}`);
+  },
 
-    await new Promise(resolve => setTimeout(resolve, 200));
+  /**
+   * Get inquiry by ID (Admin only)
+   */
+  getById: async (id) => {
+    return apiCall(`/inquiries/${id}`);
+  },
 
-    return {
-      inquiries: [],
-      total: 0
-    };
-  }
+  /**
+   * Update inquiry (Admin only)
+   */
+  update: async (id, data) => {
+    return apiCall(`/inquiries/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete inquiry (Admin only)
+   */
+  delete: async (id) => {
+    return apiCall(`/inquiries/${id}`, { method: 'DELETE' });
+  },
+};
+
+// ============================================
+// QUOTE API SERVICES
+// ============================================
+
+export const quoteAPI = {
+  /**
+   * Submit quote request (Public)
+   */
+  submit: async (data) => {
+    return apiCall('/quotes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Get all quote requests (Admin only)
+   */
+  getAll: async (options = {}) => {
+    const params = new URLSearchParams(options);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiCall(`/quotes${query}`);
+  },
+
+  /**
+   * Get quote by ID (Admin only)
+   */
+  getById: async (id) => {
+    return apiCall(`/quotes/${id}`);
+  },
+
+  /**
+   * Update quote request (Admin only)
+   */
+  update: async (id, data) => {
+    return apiCall(`/quotes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete quote request (Admin only)
+   */
+  delete: async (id) => {
+    return apiCall(`/quotes/${id}`, { method: 'DELETE' });
+  },
+};
+
+// ============================================
+// ADMIN API SERVICES
+// ============================================
+
+export const adminAPI = {
+  /**
+   * Get all admins
+   */
+  getAll: async () => {
+    return apiCall('/admins');
+  },
+
+  /**
+   * Create new admin
+   */
+  create: async (data) => {
+    return apiCall('/admins', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Update admin
+   */
+  update: async (id, data) => {
+    return apiCall(`/admins/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete admin
+   */
+  delete: async (id) => {
+    return apiCall(`/admins/${id}`, { method: 'DELETE' });
+  },
+};
+
+// ============================================
+// DASHBOARD API SERVICES
+// ============================================
+
+export const dashboardAPI = {
+  /**
+   * Get dashboard statistics (Admin only)
+   */
+  getStats: async () => {
+    return apiCall('/dashboard/stats');
+  },
 };
 
 // Export all APIs
 export default {
+  auth: authAPI,
   product: productAPI,
   category: categoryAPI,
-  inquiry: inquiryAPI
+  inquiry: inquiryAPI,
+  quote: quoteAPI,
+  admin: adminAPI,
+  dashboard: dashboardAPI,
 };
