@@ -197,73 +197,74 @@ async function getByCategory(req, res, next) {
  */
 async function create(req, res, next) {
   try {
-    const {
-      categoryId,
-      name,
-      slug: customSlug,
-      code,
-      description,
-      fullDescription,
-      specMaterial,
-      specIpRating,
-      specFlammability,
-      specColor,
-      specDoorType,
-      specMounting,
-      specTemperatureRange,
-      isFeatured,
-      isActive,
-      features,
-      dynamicSpecs,
-    } = req.body;
+    console.log('=== Product Create ===');
+    console.log('Body:', req.body);
+    console.log('Files:', req.files);
 
-    // Check if category exists
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
+    let { name, description, category, code, price, priceType, inStock, featured, specs, features } = req.body;
+
+    // Parse specs/features if they're JSON strings
+    if (typeof specs === 'string') {
+      try {
+        specs = JSON.parse(specs);
+      } catch (e) {
+        console.warn('Failed to parse specs JSON:', e.message);
+        specs = [];
+      }
+    }
+    if (typeof features === 'string') {
+      try {
+        features = JSON.parse(features);
+      } catch (e) {
+        console.warn('Failed to parse features JSON:', e.message);
+        features = [];
+      }
+    }
+
+    // Find category by slug
+    const categoryRecord = await prisma.category.findUnique({
+      where: { slug: category },
     });
 
-    if (!category) {
+    if (!categoryRecord) {
       return response.badRequest(res, 'Category not found');
     }
 
     // Generate slug
-    let slug = customSlug || generateSlug(name);
+    let slug = generateSlug(name);
     slug = await generateUniqueSlug(slug, async (s) => {
       const existing = await prisma.product.findUnique({ where: { slug: s } });
       return !!existing;
     });
 
+    // Parse price
+    const parsedPrice = price === '' || price === null ? null : parseFloat(price);
+
     // Create product
     const product = await prisma.product.create({
       data: {
-        categoryId,
+        categoryId: categoryRecord.id,
         name,
         slug,
-        code,
-        description,
-        fullDescription,
-        specMaterial,
-        specIpRating,
-        specFlammability,
-        specColor,
-        specDoorType,
-        specMounting,
-        specTemperatureRange,
-        isFeatured,
-        isActive,
-        features: features
+        code: code || null,
+        description: description || null,
+        isFeatured: featured === 'true' || featured === true,
+        isActive: true,
+        // Store specs as dynamicSpecs
+        dynamicSpecs: Array.isArray(specs) && specs.length > 0
           ? {
-              create: features.map((text, index) => ({
-                featureText: text,
+              create: specs.map((specValue, index) => ({
+                specKey: `spec_${index}`,
+                specValue,
                 sortOrder: index,
               })),
             }
           : undefined,
-        dynamicSpecs: dynamicSpecs
+        // Store features
+        features: Array.isArray(features) && features.length > 0
           ? {
-              create: dynamicSpecs.map((spec, index) => ({
-                specKey: spec.key,
-                specValue: spec.value,
+              create: features.map((featureText, index) => ({
+                featureText,
                 sortOrder: index,
               })),
             }
@@ -272,8 +273,56 @@ async function create(req, res, next) {
       include: productInclude,
     });
 
-    response.created(res, product);
+    // Handle image uploads (req.files is an object when using .fields())
+    const imageFiles = req.files?.images || [];
+    if (imageFiles.length > 0) {
+      const imageData = imageFiles.map((file, index) => ({
+        productId: product.id,
+        imageUrl: `/uploads/products/images/${file.filename}`,
+        isPrimary: index === 0,
+        sortOrder: index,
+      }));
+      await prisma.productImage.createMany({ data: imageData });
+    }
+
+    // Handle document uploads
+    const docFiles = req.files?.documents || [];
+    if (docFiles.length > 0) {
+      for (let i = 0; i < docFiles.length; i++) {
+        const file = docFiles[i];
+        // Parse document metadata
+        let docMeta = { name: file.originalname.replace(/\.[^/.]+$/, ''), documentType: 'DATASHEET' };
+        try {
+          const metaKey = `documentMeta[${i}]`;
+          if (req.body[metaKey]) {
+            docMeta = JSON.parse(req.body[metaKey]);
+          }
+        } catch (e) {
+          console.warn('Failed to parse document meta:', e.message);
+        }
+
+        await prisma.productDocument.create({
+          data: {
+            productId: product.id,
+            name: docMeta.name || file.originalname,
+            documentUrl: `/uploads/products/documents/${file.filename}`,
+            documentType: docMeta.documentType || 'DATASHEET',
+            fileSizeBytes: file.size,
+          },
+        });
+      }
+    }
+
+    // Fetch product with all relations
+    const fullProduct = await prisma.product.findUnique({
+      where: { id: product.id },
+      include: productInclude,
+    });
+
+    console.log('Product created:', fullProduct.id);
+    response.created(res, fullProduct);
   } catch (error) {
+    console.error('Product create error:', error);
     next(error);
   }
 }
@@ -284,71 +333,81 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const { id } = req.params;
-    const {
-      categoryId,
-      name,
-      slug: customSlug,
-      code,
-      description,
-      fullDescription,
-      specMaterial,
-      specIpRating,
-      specFlammability,
-      specColor,
-      specDoorType,
-      specMounting,
-      specTemperatureRange,
-      isFeatured,
-      isActive,
-      features,
-      dynamicSpecs,
-    } = req.body;
+    console.log('=== Product Update ===');
+    console.log('ID:', id);
+    console.log('Body:', req.body);
+    console.log('Files:', req.files);
+
+    let { name, description, category, code, price, priceType, inStock, featured, specs, features, existingImages, existingDocuments } = req.body;
+
+    // Parse JSON strings
+    if (typeof specs === 'string') {
+      try {
+        specs = JSON.parse(specs);
+      } catch (e) {
+        console.warn('Failed to parse specs JSON:', e.message);
+        specs = undefined;
+      }
+    }
+    if (typeof features === 'string') {
+      try {
+        features = JSON.parse(features);
+      } catch (e) {
+        console.warn('Failed to parse features JSON:', e.message);
+        features = undefined;
+      }
+    }
+    if (typeof existingImages === 'string') {
+      try {
+        existingImages = JSON.parse(existingImages);
+      } catch (e) {
+        console.warn('Failed to parse existingImages JSON:', e.message);
+        existingImages = [];
+      }
+    }
+    if (typeof existingDocuments === 'string') {
+      try {
+        existingDocuments = JSON.parse(existingDocuments);
+      } catch (e) {
+        console.warn('Failed to parse existingDocuments JSON:', e.message);
+        existingDocuments = [];
+      }
+    }
 
     // Check if product exists
     const existing = await prisma.product.findUnique({
       where: { id },
+      include: { images: true, documents: true },
     });
 
     if (!existing) {
       return response.notFound(res, 'Product not found');
     }
 
-    // Check category if changing
-    if (categoryId) {
-      const category = await prisma.category.findUnique({
-        where: { id: categoryId },
+    // Build update data
+    const updateData = {};
+
+    if (name) updateData.name = name;
+    if (code !== undefined) updateData.code = code || null;
+    if (description !== undefined) updateData.description = description || null;
+
+    // Handle category change
+    if (category) {
+      const categoryRecord = await prisma.category.findUnique({
+        where: { slug: category },
       });
-      if (!category) {
-        return response.badRequest(res, 'Category not found');
+      if (categoryRecord) {
+        updateData.categoryId = categoryRecord.id;
       }
     }
 
-    // Handle slug
-    let slug = customSlug;
-    if (slug && slug !== existing.slug) {
-      slug = await generateUniqueSlug(slug, async (s) => {
-        const found = await prisma.product.findUnique({ where: { slug: s } });
-        return found && found.id !== id;
-      });
+    // Handle booleans
+    if (featured !== undefined) {
+      updateData.isFeatured = featured === 'true' || featured === true;
     }
-
-    // Build update data
-    const updateData = {};
-    if (categoryId) updateData.categoryId = categoryId;
-    if (name) updateData.name = name;
-    if (slug) updateData.slug = slug;
-    if (code !== undefined) updateData.code = code;
-    if (description !== undefined) updateData.description = description;
-    if (fullDescription !== undefined) updateData.fullDescription = fullDescription;
-    if (specMaterial !== undefined) updateData.specMaterial = specMaterial;
-    if (specIpRating !== undefined) updateData.specIpRating = specIpRating;
-    if (specFlammability !== undefined) updateData.specFlammability = specFlammability;
-    if (specColor !== undefined) updateData.specColor = specColor;
-    if (specDoorType !== undefined) updateData.specDoorType = specDoorType;
-    if (specMounting !== undefined) updateData.specMounting = specMounting;
-    if (specTemperatureRange !== undefined) updateData.specTemperatureRange = specTemperatureRange;
-    if (typeof isFeatured === 'boolean') updateData.isFeatured = isFeatured;
-    if (typeof isActive === 'boolean') updateData.isActive = isActive;
+    if (inStock !== undefined) {
+      updateData.isActive = inStock === 'true' || inStock === true;
+    }
 
     // Update product
     let product = await prisma.product.update({
@@ -358,7 +417,7 @@ async function update(req, res, next) {
     });
 
     // Update features if provided
-    if (features !== undefined) {
+    if (Array.isArray(features)) {
       await prisma.productFeature.deleteMany({ where: { productId: id } });
       if (features.length > 0) {
         await prisma.productFeature.createMany({
@@ -371,31 +430,99 @@ async function update(req, res, next) {
       }
     }
 
-    // Update dynamic specs if provided
-    if (dynamicSpecs !== undefined) {
+    // Update specs if provided
+    if (Array.isArray(specs)) {
       await prisma.productDynamicSpec.deleteMany({ where: { productId: id } });
-      if (dynamicSpecs.length > 0) {
+      if (specs.length > 0) {
         await prisma.productDynamicSpec.createMany({
-          data: dynamicSpecs.map((spec, index) => ({
+          data: specs.map((specValue, index) => ({
             productId: id,
-            specKey: spec.key,
-            specValue: spec.value,
+            specKey: `spec_${index}`,
+            specValue,
             sortOrder: index,
           })),
         });
       }
     }
 
-    // Refetch if features or specs were updated
-    if (features !== undefined || dynamicSpecs !== undefined) {
-      product = await prisma.product.findUnique({
-        where: { id },
-        include: productInclude,
-      });
+    // Handle image removal - delete images not in existingImages list
+    if (Array.isArray(existingImages)) {
+      const existingImageUrls = existingImages.map(img => typeof img === 'string' ? img : img.imageUrl);
+      const imagesToDelete = existing.images.filter(img => !existingImageUrls.includes(img.imageUrl));
+
+      const uploadDir = process.env.UPLOAD_DIR || './uploads';
+      for (const img of imagesToDelete) {
+        console.log('Deleting removed image:', img.imageUrl);
+        await imageService.deleteImage(path.join(uploadDir, img.imageUrl.replace('/uploads/', ''))).catch(() => {});
+        await prisma.productImage.delete({ where: { id: img.id } });
+      }
     }
 
+    // Handle new image uploads (req.files is an object when using .fields())
+    const imageFiles = req.files?.images || [];
+    if (imageFiles.length > 0) {
+      const existingCount = existingImages ? existingImages.length : 0;
+      const hasPrimary = existingCount > 0;
+      const imageData = imageFiles.map((file, index) => ({
+        productId: id,
+        imageUrl: `/uploads/products/images/${file.filename}`,
+        isPrimary: !hasPrimary && index === 0,
+        sortOrder: existingCount + index,
+      }));
+      await prisma.productImage.createMany({ data: imageData });
+    }
+
+    // Handle document removal - delete documents not in existingDocuments list
+    if (Array.isArray(existingDocuments)) {
+      const existingDocIds = existingDocuments.map(doc => doc.id).filter(Boolean);
+      const docsToDelete = existing.documents.filter(doc => !existingDocIds.includes(doc.id));
+
+      const uploadDir = process.env.UPLOAD_DIR || './uploads';
+      for (const doc of docsToDelete) {
+        console.log('Deleting removed document:', doc.documentUrl);
+        await imageService.deleteFile(path.join(uploadDir, doc.documentUrl.replace('/uploads/', ''))).catch(() => {});
+        await prisma.productDocument.delete({ where: { id: doc.id } });
+      }
+    }
+
+    // Handle new document uploads
+    const docFiles = req.files?.documents || [];
+    if (docFiles.length > 0) {
+      for (let i = 0; i < docFiles.length; i++) {
+        const file = docFiles[i];
+        // Parse document metadata from the request body
+        let docMeta = { name: file.originalname.replace(/\.[^/.]+$/, ''), documentType: 'DATASHEET' };
+        try {
+          const metaKey = `documentMeta[${i}]`;
+          if (req.body[metaKey]) {
+            docMeta = JSON.parse(req.body[metaKey]);
+          }
+        } catch (e) {
+          console.warn('Failed to parse document meta:', e.message);
+        }
+
+        await prisma.productDocument.create({
+          data: {
+            productId: id,
+            name: docMeta.name || file.originalname,
+            documentUrl: `/uploads/products/documents/${file.filename}`,
+            documentType: docMeta.documentType || 'DATASHEET',
+            fileSizeBytes: file.size,
+          },
+        });
+      }
+    }
+
+    // Refetch product with all relations
+    product = await prisma.product.findUnique({
+      where: { id },
+      include: productInclude,
+    });
+
+    console.log('Product updated:', product.id);
     response.success(res, product);
   } catch (error) {
+    console.error('Product update error:', error);
     next(error);
   }
 }
@@ -456,6 +583,16 @@ async function addVariant(req, res, next) {
       return response.notFound(res, 'Product not found');
     }
 
+    // Check if SKU already exists
+    if (data.sku) {
+      const existingSku = await prisma.productVariant.findUnique({
+        where: { sku: data.sku },
+      });
+      if (existingSku) {
+        return response.conflict(res, `SKU "${data.sku}" already exists`);
+      }
+    }
+
     // Create variant
     const variant = await prisma.productVariant.create({
       data: {
@@ -485,6 +622,16 @@ async function updateVariant(req, res, next) {
 
     if (!existing) {
       return response.notFound(res, 'Variant not found');
+    }
+
+    // Check if SKU already exists (excluding current variant)
+    if (data.sku && data.sku !== existing.sku) {
+      const existingSku = await prisma.productVariant.findUnique({
+        where: { sku: data.sku },
+      });
+      if (existingSku) {
+        return response.conflict(res, `SKU "${data.sku}" already exists`);
+      }
     }
 
     // Update variant
@@ -557,23 +704,29 @@ async function uploadImages(req, res, next) {
       where: { productId: id, isPrimary: true },
     });
 
-    const uploadDir = process.env.UPLOAD_DIR || './uploads';
     const images = [];
+    const errors = [];
 
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
 
-      // Process image
-      await imageService.processImage(file.path);
+      try {
+        // Process image (resize, optimize)
+        await imageService.processImage(file.path);
+      } catch (processError) {
+        // Log error but continue - the original file is still usable
+        console.warn(`Failed to process image ${file.filename}:`, processError.message);
+        errors.push({ file: file.filename, error: processError.message });
+      }
 
-      // Get relative path
-      const relativePath = path.relative(uploadDir, file.path);
+      // Use consistent URL format
+      const imageUrl = `/uploads/products/images/${file.filename}`;
 
       // Create image record
       const image = await prisma.productImage.create({
         data: {
           productId: id,
-          imageUrl: relativePath,
+          imageUrl,
           isPrimary: !hasPrimary && i === 0, // First image is primary if none exists
           sortOrder: i,
         },
@@ -582,7 +735,12 @@ async function uploadImages(req, res, next) {
       images.push(image);
     }
 
-    response.created(res, images);
+    // Return images with any processing warnings
+    const result = { images };
+    if (errors.length > 0) {
+      result.warnings = errors;
+    }
+    response.created(res, result);
   } catch (error) {
     next(error);
   }

@@ -5,3 +5,5 @@ export { default as CategoryProducts } from './CategoryProducts';
 export { default as Gallery } from './Gallery';
 export { default as About } from './About';
 export { default as Contact } from './Contact';
+export { default as QuoteRequest } from './QuoteRequest';
+export { default as Downloads } from './Downloads';

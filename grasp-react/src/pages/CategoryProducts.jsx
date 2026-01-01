@@ -36,7 +36,7 @@ const CategoryProducts = () => {
           <p className="category-description">{category.description}</p>
           <div className="category-specs-inline">
             {category.specs?.map((spec, index) => (
-              <span key={index} className="spec-badge">{spec}</span>
+              <span key={spec.id || index} className="spec-badge">{spec.specValue || spec}</span>
             ))}
           </div>
         </div>

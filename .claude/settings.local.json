@@ -10,7 +10,11 @@
       "Bash(find:*)",
       "Bash(wc:*)",
       "Bash(git -C /mnt/d/Projects/Grasp log --oneline)",
-      "Bash(npm init:*)"
+      "Bash(npm init:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(cat:*)",
+      "Bash(curl:*)",
+      "Bash(npx prisma:*)"
     ]
   }
 }

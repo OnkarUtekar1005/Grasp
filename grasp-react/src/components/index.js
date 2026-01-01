@@ -6,6 +6,7 @@ export { default as ProductCategories } from './ProductCategories';
 export { default as TrustedClients } from './TrustedClients';
 export { default as Industries } from './Industries';
 export { default as Certifications } from './Certifications';
+export { default as FAQ } from './FAQ';
 export { default as Footer } from './Footer';
 export { default as ProtectedRoute } from './ProtectedRoute';
 export { default as ScrollToTop } from './ScrollToTop';

@@ -15,8 +15,8 @@ router.get('/', categoryController.getAll);
 router.get('/:slug', validate(categorySlugSchema), categoryController.getBySlug);
 
 // Admin routes
-router.post('/', authenticate, validate(createCategorySchema), categoryController.create);
-router.put('/:id', authenticate, validate(updateCategorySchema), categoryController.update);
+router.post('/', authenticate, uploadImage.single('image'), validate(createCategorySchema), categoryController.create);
+router.put('/:id', authenticate, uploadImage.single('image'), validate(updateCategorySchema), categoryController.update);
 router.delete('/:id', authenticate, validate(categoryIdSchema), categoryController.remove);
 router.post(
   '/:id/image',

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Navbar, Footer } from '../components';
-import { productAPI, categoryAPI } from '../services';
+import { productAPI, categoryAPI, BACKEND_URL } from '../services';
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -11,10 +11,14 @@ const Products = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [showMoreProducts, setShowMoreProducts] = useState({});
 
   // Filter states
   const [filters, setFilters] = useState({
     categories: [],
+    products: [], // Selected product IDs
     ipRatings: [],
     materials: [],
     mountingTypes: [],
@@ -22,6 +26,38 @@ const Products = () => {
     inStockOnly: false,
     featuredOnly: false
   });
+
+  // Get products for a category
+  const getProductsForCategory = (categoryId) => {
+    return products.filter(p => p.categoryId === categoryId);
+  };
+
+  // Toggle category expansion to show products
+  const toggleCategoryExpand = (categorySlug) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categorySlug]: !prev[categorySlug]
+    }));
+  };
+
+  // Toggle product selection
+  const toggleProductFilter = (productId) => {
+    setFilters(prev => {
+      const current = prev.products;
+      const updated = current.includes(productId)
+        ? current.filter(id => id !== productId)
+        : [...current, productId];
+      return { ...prev, products: updated };
+    });
+  };
+
+  // Show more products for a category
+  const toggleShowMoreProducts = (categorySlug) => {
+    setShowMoreProducts(prev => ({
+      ...prev,
+      [categorySlug]: !prev[categorySlug]
+    }));
+  };
 
 
   // Extract unique filter options from products
@@ -66,8 +102,8 @@ const Products = () => {
           productAPI.getAll(),
           categoryAPI.getAll()
         ]);
-        setProducts(productsData.products || productsData);
-        setCategories(categoriesData);
+        setProducts(productsData.data || []);
+        setCategories(categoriesData.data || []);
 
         // Check URL for initial category filter
         const categoryParam = searchParams.get('category');
@@ -106,6 +142,11 @@ const Products = () => {
       result = result.filter(product => categoryIds.includes(product.categoryId));
     }
 
+    // Specific product filter (when products are selected from category sub-list)
+    if (filters.products.length > 0) {
+      result = result.filter(product => filters.products.includes(product.id));
+    }
+
     // IP Rating filter
     if (filters.ipRatings.length > 0) {
       result = result.filter(product =>
@@ -137,18 +178,29 @@ const Products = () => {
       });
     }
 
-    // In stock filter
+    // In stock filter (check both isActive and inStock for compatibility)
     if (filters.inStockOnly) {
-      result = result.filter(product => product.inStock);
+      result = result.filter(product => product.isActive !== false && product.inStock !== false);
     }
 
-    // Featured filter
+    // Featured filter (check both isFeatured and featured for compatibility)
     if (filters.featuredOnly) {
-      result = result.filter(product => product.featured);
+      result = result.filter(product => product.isFeatured || product.featured);
     }
 
-    // Sort by name by default
-    result.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort by category first (A-Z), then by product name within each category (A-Z)
+    result.sort((a, b) => {
+      // Get category names - check both nested category object and categoryId lookup
+      const catA = a.category?.name || categories.find(c => c.id === a.categoryId)?.name || 'ZZZ';
+      const catB = b.category?.name || categories.find(c => c.id === b.categoryId)?.name || 'ZZZ';
+
+      // First sort by category name (A-Z)
+      const categoryCompare = catA.toLowerCase().localeCompare(catB.toLowerCase());
+      if (categoryCompare !== 0) return categoryCompare;
+
+      // Then sort by product name within same category (A-Z)
+      return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+    });
 
     return result;
   }, [products, categories, searchQuery, filters]);
@@ -168,6 +220,7 @@ const Products = () => {
   const clearAllFilters = () => {
     setFilters({
       categories: [],
+      products: [],
       ipRatings: [],
       materials: [],
       mountingTypes: [],
@@ -177,12 +230,15 @@ const Products = () => {
     });
     setSearchQuery('');
     setSearchParams({});
+    setExpandedCategories({});
+    setShowMoreProducts({});
   };
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
     let count = 0;
     count += filters.categories.length;
+    count += filters.products.length;
     count += filters.ipRatings.length;
     count += filters.materials.length;
     count += filters.mountingTypes.length;
@@ -195,7 +251,12 @@ const Products = () => {
   // Helper to safely get array from specs/features
   const getArray = (value) => {
     if (!value) return [];
-    if (Array.isArray(value)) return value;
+    if (Array.isArray(value)) {
+      // Extract specValue/featureValue if items are objects
+      return value.map(item =>
+        typeof item === 'object' ? (item.specValue || item.featureValue || item.value || item) : item
+      );
+    }
     if (typeof value === 'string') {
       try {
         const parsed = JSON.parse(value);
@@ -418,24 +479,95 @@ const Products = () => {
             </div>
 
             <div className="filter-sidebar-content">
-              {/* Categories */}
+              {/* Categories with Product Sub-list */}
               <FilterSection title="Categories">
-                <div className="filter-options">
-                  {categories.map(category => (
-                    <label key={category.slug} className="filter-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={filters.categories.includes(category.slug)}
-                        onChange={() => toggleFilter('categories', category.slug)}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="filter-label">{category.name}</span>
-                      <span className="filter-count-badge">
-                        {products.filter(p => p.categoryId === category.id).length}
-                      </span>
-                    </label>
-                  ))}
+                <div className="filter-options category-filter-list">
+                  {(showAllCategories ? categories : categories.slice(0, 10)).map(category => {
+                    const categoryProducts = getProductsForCategory(category.id);
+                    const isExpanded = expandedCategories[category.slug];
+                    const showAllProducts = showMoreProducts[category.slug];
+                    const displayProducts = showAllProducts ? categoryProducts : categoryProducts.slice(0, 10);
+
+                    return (
+                      <div key={category.slug} className="category-filter-item">
+                        <div className="category-filter-row">
+                          <label className="filter-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={filters.categories.includes(category.slug)}
+                              onChange={() => toggleFilter('categories', category.slug)}
+                            />
+                            <span className="checkmark"></span>
+                            <span className="filter-label">{category.name}</span>
+                            <span className="filter-count-badge">{categoryProducts.length}</span>
+                          </label>
+                          {categoryProducts.length > 0 && (
+                            <button
+                              className={`category-expand-btn ${isExpanded ? 'expanded' : ''}`}
+                              onClick={() => toggleCategoryExpand(category.slug)}
+                              title={isExpanded ? 'Hide products' : 'Show products'}
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M6 9l6 6 6-6" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Product Sub-list */}
+                        {isExpanded && categoryProducts.length > 0 && (
+                          <div className="product-sub-list">
+                            {displayProducts.map(product => (
+                              <label key={product.id} className="filter-checkbox product-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={filters.products.includes(product.id)}
+                                  onChange={() => toggleProductFilter(product.id)}
+                                />
+                                <span className="checkmark small"></span>
+                                <span className="filter-label">{product.name}</span>
+                              </label>
+                            ))}
+                            {categoryProducts.length > 10 && (
+                              <button
+                                className="show-more-btn small"
+                                onClick={() => toggleShowMoreProducts(category.slug)}
+                              >
+                                {showAllProducts ? (
+                                  <>Show Less</>
+                                ) : (
+                                  <>Show More ({categoryProducts.length - 10})</>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+                {categories.length > 10 && (
+                  <button
+                    className="show-more-btn"
+                    onClick={() => setShowAllCategories(!showAllCategories)}
+                  >
+                    {showAllCategories ? (
+                      <>
+                        Show Less
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 15l-6-6-6 6" />
+                        </svg>
+                      </>
+                    ) : (
+                      <>
+                        Show More ({categories.length - 10})
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                )}
               </FilterSection>
 
               {/* IP Rating */}
@@ -656,84 +788,114 @@ const Products = () => {
             ) : (
               <div className={`products-grid-container ${viewMode}`}>
                 {viewMode === 'grid' ? (
-                  filteredProducts.map((product) => (
-                    <Link
-                      to={`/products/${product.slug || product.id}`}
-                      key={product.id}
-                      className="product-grid-card"
-                    >
-                      <div className="product-grid-image">
-                        {product.image ? (
-                          <img src={product.image} alt={product.name} />
-                        ) : (
-                          renderProductSVG(product.id % 6 + 1)
-                        )}
-                        {product.featured && <span className="product-featured-badge">Featured</span>}
-                        {!product.inStock && <span className="product-stock-badge">Out of Stock</span>}
-                      </div>
-                      <div className="product-grid-content">
-                        <div className="product-grid-code">{product.code || product.category}</div>
-                        <h3 className="product-grid-name">{product.name}</h3>
-                        <p className="product-grid-desc">{product.description || product.desc}</p>
-                        {product.price && (
-                          <div className="product-grid-price">₹{product.price.toLocaleString()}</div>
-                        )}
-                        <span className="product-grid-link">
-                          View Details
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M5 12h14M12 5l7 7-7 7" />
-                          </svg>
-                        </span>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  filteredProducts.map((product) => (
-                    <Link
-                      to={`/products/${product.slug || product.id}`}
-                      key={product.id}
-                      className="product-detail-card"
-                    >
-                      <div className="product-detail-image">
-                        {product.image ? (
-                          <img src={product.image} alt={product.name} />
-                        ) : (
-                          renderProductSVG(product.id % 6 + 1)
-                        )}
-                      </div>
-                      <div className="product-detail-content">
-                        <div className="product-detail-code">{product.code || product.category}</div>
-                        <h2 className="product-detail-name">{product.name}</h2>
-                        <p className="product-detail-desc">{product.description || product.desc}</p>
-                        <div className="product-detail-specs">
-                          {getArray(product.specs).slice(0, 4).map((spec, index) => (
-                            <span key={index} className="product-spec-tag">{spec}</span>
-                          ))}
+                  filteredProducts.map((product) => {
+                    const categoryName = product.category?.name || categories.find(c => c.id === product.categoryId)?.name || '';
+                    return (
+                      <Link
+                        to={`/products/${product.slug || product.id}`}
+                        key={product.id}
+                        className="product-grid-card"
+                      >
+                        <div className="product-grid-image">
+                          {(() => {
+                            const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
+                            const imageUrl = primaryImage?.imageUrl || product.image;
+                            if (imageUrl) {
+                              const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${BACKEND_URL}${imageUrl}`;
+                              return <img src={fullUrl} alt={product.name} />;
+                            }
+                            return renderProductSVG(product.id % 6 + 1);
+                          })()}
+                          {(product.isFeatured || product.featured) && <span className="product-featured-badge">Featured</span>}
+                          {product.isActive === false && <span className="product-stock-badge">Out of Stock</span>}
                         </div>
-                        {getArray(product.features).length > 0 && (
-                          <div className="product-detail-features">
-                            <h4>Key Features</h4>
-                            <ul>
-                              {getArray(product.features).slice(0, 4).map((feature, index) => (
-                                <li key={index}>{feature}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        <div className="product-card-footer">
+                        <div className="product-grid-content">
+                          <h3 className="product-grid-name">{product.name}</h3>
+                          {categoryName && <div className="product-grid-category">{categoryName}</div>}
+                          <p className="product-grid-desc">{product.description || product.desc}</p>
                           {product.price && (
-                            <span className="product-price">₹{product.price.toLocaleString()}</span>
+                            <div className="product-grid-price">₹{product.price.toLocaleString()}</div>
                           )}
-                          <span className="view-details">
+                          <span className="product-grid-link">
                             View Details
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M5 12h14M12 5l7 7-7 7" />
                             </svg>
                           </span>
                         </div>
-                      </div>
-                    </Link>
-                  ))
+                      </Link>
+                    );
+                  })
+                ) : (
+                  filteredProducts.map((product) => {
+                    const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
+                    const imageUrl = primaryImage?.imageUrl || product.image;
+                    const categoryName = product.category?.name || categories.find(c => c.id === product.categoryId)?.name || '';
+
+                    // Extract feature text from feature objects
+                    const features = (product.features || []).map(f =>
+                      typeof f === 'object' ? (f.featureText || f.text || f.value || '') : f
+                    ).filter(Boolean);
+
+                    // Extract spec values from spec objects
+                    const specs = (product.specs || []).map(s =>
+                      typeof s === 'object' ? (s.specValue || s.value || `${s.specName}: ${s.specValue}` || '') : s
+                    ).filter(Boolean);
+
+                    return (
+                      <Link
+                        to={`/products/${product.slug || product.id}`}
+                        key={product.id}
+                        className="product-list-card"
+                      >
+                        <div className="product-list-image">
+                          {imageUrl ? (
+                            <img src={imageUrl.startsWith('http') ? imageUrl : `${BACKEND_URL}${imageUrl}`} alt={product.name} />
+                          ) : (
+                            renderProductSVG(product.id % 6 + 1)
+                          )}
+                          {(product.isFeatured || product.featured) && <span className="product-featured-badge">Featured</span>}
+                        </div>
+                        <div className="product-list-content">
+                          <div className="product-list-header">
+                            <span className="product-list-category">{categoryName}</span>
+                            {product.code && <code className="product-list-code">{product.code}</code>}
+                          </div>
+                          <h2 className="product-list-name">{product.name}</h2>
+                          <p className="product-list-desc">{product.description || product.desc}</p>
+                          {specs.length > 0 && (
+                            <div className="product-list-specs">
+                              {specs.slice(0, 4).map((spec, index) => (
+                                <span key={index} className="product-spec-tag">{spec}</span>
+                              ))}
+                            </div>
+                          )}
+                          {features.length > 0 && (
+                            <div className="product-list-features">
+                              <ul>
+                                {features.slice(0, 3).map((feature, index) => (
+                                  <li key={index}>{feature}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        <div className="product-list-actions">
+                          {product.price ? (
+                            <span className="product-list-price">₹{product.price.toLocaleString()}</span>
+                          ) : (
+                            <span className="product-list-quote">Request Quote</span>
+                          )}
+                          <span className="view-details-btn">
+                            View Details
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })
                 )}
               </div>
             )}

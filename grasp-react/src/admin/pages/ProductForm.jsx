@@ -1,17 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { productAPI, categoryAPI } from '../../services';
+import { productAPI, categoryAPI, BACKEND_URL } from '../../services';
+import { useProducts } from '../../contexts';
+
+const DOCUMENT_TYPES = [
+  { value: 'DATASHEET', label: 'Datasheet' },
+  { value: 'MANUAL', label: 'User Manual' },
+  { value: 'CERTIFICATE', label: 'Certificate' },
+  { value: 'CAD', label: 'CAD Drawing' },
+  { value: 'OTHER', label: 'Other Document' },
+];
 
 const ProductForm = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const isEditing = Boolean(id);
+  const { id: slugOrId } = useParams();
+  const isEditing = Boolean(slugOrId);
   const fileInputRef = useRef(null);
+  const docInputRef = useRef(null);
+  const { refreshData } = useProducts();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState({});
+  const [productId, setProductId] = useState(null); // Store the actual UUID for updates
 
   // Form state
   const [formData, setFormData] = useState({
@@ -33,43 +45,74 @@ const ProductForm = () => {
   const [existingImages, setExistingImages] = useState([]);
   const [dragActive, setDragActive] = useState(false);
 
+  // Document state
+  const [documents, setDocuments] = useState([]);
+  const [existingDocuments, setExistingDocuments] = useState([]);
+  const [dragDocActive, setDragDocActive] = useState(false);
+
   // Fetch categories and product data (if editing)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const categoriesData = await categoryAPI.getAll();
-        setCategories(categoriesData);
+        setCategories(categoriesData.data || []);
 
         if (isEditing) {
-          const product = await productAPI.getBySlug(id);
+          const response = await productAPI.getBySlug(slugOrId);
+          const product = response.data || response;
+          // Store the UUID for update calls
+          setProductId(product.id);
+          // Extract values from spec/feature objects if needed
+          const specs = product.dynamicSpecs?.length
+            ? product.dynamicSpecs.map(s => s.specValue || s.value || s)
+            : product.specs?.length
+              ? product.specs.map(s => s.specValue || s.value || s)
+              : [''];
+          const features = product.features?.length
+            ? product.features.map(f => f.featureText || f.featureValue || f.value || f)
+            : [''];
           setFormData({
             name: product.name || '',
             description: product.description || '',
-            category: product.categorySlug || '',
+            category: product.category?.slug || '',
             code: product.code || '',
             price: product.price || '',
             priceType: product.price ? 'fixed' : 'quote',
-            inStock: product.inStock !== false,
-            featured: product.featured || false,
-            specs: product.specs?.length ? product.specs : [''],
-            features: product.features?.length ? product.features : [''],
+            inStock: product.isActive !== false,
+            featured: product.isFeatured || false,
+            specs,
+            features,
           });
-          if (product.images) {
-            setExistingImages(product.images);
-          } else if (product.image) {
-            setExistingImages([product.image]);
+          if (product.images?.length) {
+            // Store full image objects for existing images
+            setExistingImages(product.images.map(img => ({
+              id: img.id,
+              url: `${BACKEND_URL}${img.imageUrl}`,
+              imageUrl: img.imageUrl,
+            })));
+          }
+          if (product.documents?.length) {
+            setExistingDocuments(product.documents.map(doc => ({
+              id: doc.id,
+              name: doc.name,
+              documentUrl: doc.documentUrl,
+              documentType: doc.documentType,
+              fileSizeBytes: doc.fileSizeBytes,
+            })));
           }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
+        alert('Product not found');
+        navigate('/admin/products');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [id, isEditing]);
+  }, [slugOrId, isEditing, navigate]);
 
   // Handle input change
   const handleChange = (e) => {
@@ -182,6 +225,77 @@ const ProductForm = () => {
     }
   };
 
+  // Handle document file selection
+  const handleDocFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    processDocFiles(files);
+  };
+
+  // Handle document drag events
+  const handleDocDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragDocActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragDocActive(false);
+    }
+  };
+
+  // Handle document drop
+  const handleDocDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragDocActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      processDocFiles(files);
+    }
+  };
+
+  // Process document files
+  const processDocFiles = (files) => {
+    const validExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.dwg', '.dxf', '.png', '.jpg', '.jpeg'];
+    const validFiles = files.filter(file => {
+      const ext = '.' + file.name.split('.').pop().toLowerCase();
+      const isValidType = validExtensions.includes(ext);
+      const isValidSize = file.size <= 20 * 1024 * 1024; // 20MB limit
+      return isValidType && isValidSize;
+    });
+
+    if (validFiles.length !== files.length) {
+      alert('Some files were skipped. Only PDF, DOC, XLS, DWG, or images under 20MB are allowed.');
+    }
+
+    // Create document entries with default type
+    const newDocs = validFiles.map(file => ({
+      file,
+      name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension for display name
+      documentType: 'DATASHEET',
+      fileSize: file.size,
+    }));
+
+    setDocuments(prev => [...prev, ...newDocs]);
+  };
+
+  // Update document metadata
+  const updateDocument = (index, field, value) => {
+    setDocuments(prev => prev.map((doc, i) =>
+      i === index ? { ...doc, [field]: value } : doc
+    ));
+  };
+
+  // Remove new document
+  const removeNewDocument = (index) => {
+    setDocuments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Remove existing document
+  const removeExistingDocument = (index) => {
+    setExistingDocuments(prev => prev.filter((_, i) => i !== index));
+  };
+
   // Validate form
   const validateForm = () => {
     const newErrors = {};
@@ -236,19 +350,38 @@ const ProductForm = () => {
       submitData.append('specs', JSON.stringify(filteredSpecs));
       submitData.append('features', JSON.stringify(filteredFeatures));
 
-      // Add existing images to keep
-      submitData.append('existingImages', JSON.stringify(existingImages));
+      // Add existing images to keep (extract imageUrl for backend)
+      const existingImageUrls = existingImages.map(img => img.imageUrl || img);
+      submitData.append('existingImages', JSON.stringify(existingImageUrls));
 
       // Add new images
       images.forEach((image) => {
         submitData.append('images', image);
       });
 
+      // Add existing documents to keep
+      submitData.append('existingDocuments', JSON.stringify(existingDocuments));
+
+      // Add new documents with metadata
+      documents.forEach((doc, index) => {
+        submitData.append('documents', doc.file);
+        submitData.append(`documentMeta[${index}]`, JSON.stringify({
+          name: doc.name,
+          documentType: doc.documentType,
+        }));
+      });
+
       if (isEditing) {
-        await productAPI.update(id, submitData);
+        if (!productId) {
+          throw new Error('Product ID not found. Please refresh and try again.');
+        }
+        await productAPI.update(productId, submitData);
       } else {
         await productAPI.create(submitData);
       }
+
+      // Refresh the product context so the list updates instantly
+      await refreshData();
 
       // Navigate back to products list
       navigate('/admin/products');
@@ -379,9 +512,9 @@ const ProductForm = () => {
               {(existingImages.length > 0 || imagePreviewUrls.length > 0) && (
                 <div className="image-preview-grid">
                   {/* Existing Images */}
-                  {existingImages.map((url, index) => (
-                    <div key={`existing-${index}`} className={`image-preview-item ${index === 0 ? 'primary' : ''}`}>
-                      <img src={url} alt={`Product ${index + 1}`} />
+                  {existingImages.map((img, index) => (
+                    <div key={`existing-${img.id || index}`} className={`image-preview-item ${index === 0 ? 'primary' : ''}`}>
+                      <img src={img.url || img} alt={`Product ${index + 1}`} />
                       <div className="image-preview-actions">
                         {index !== 0 && (
                           <button
@@ -533,6 +666,119 @@ const ProductForm = () => {
                   Add Feature
                 </button>
               </div>
+            </div>
+
+            {/* Documents Section */}
+            <div className="form-section">
+              <h3>Documents & Resources</h3>
+              <p className="form-section-desc">Upload datasheets, manuals, certificates, and CAD drawings for this product.</p>
+
+              {/* Document Upload Area */}
+              <div
+                className={`image-upload-area ${dragDocActive ? 'drag-active' : ''}`}
+                onDragEnter={handleDocDrag}
+                onDragLeave={handleDocDrag}
+                onDragOver={handleDocDrag}
+                onDrop={handleDocDrop}
+                onClick={() => docInputRef.current?.click()}
+              >
+                <input
+                  type="file"
+                  ref={docInputRef}
+                  onChange={handleDocFileSelect}
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.png,.jpg,.jpeg"
+                  hidden
+                />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6M12 18v-6M9 15l3-3 3 3" />
+                </svg>
+                <p>Drag & drop documents here or click to browse</p>
+                <span>PDF, DOC, XLS, DWG, or images up to 20MB each</span>
+              </div>
+
+              {/* Existing Documents */}
+              {existingDocuments.length > 0 && (
+                <div className="documents-list">
+                  <h4>Existing Documents</h4>
+                  {existingDocuments.map((doc, index) => (
+                    <div key={`existing-doc-${doc.id || index}`} className="document-item">
+                      <div className="document-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                          <path d="M14 2v6h6" />
+                        </svg>
+                      </div>
+                      <div className="document-details">
+                        <span className="document-name">{doc.name}</span>
+                        <span className="document-type-badge">{doc.documentType}</span>
+                        {doc.fileSizeBytes && (
+                          <span className="document-size">{(doc.fileSizeBytes / 1024 / 1024).toFixed(2)} MB</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-icon danger"
+                        onClick={() => removeExistingDocument(index)}
+                        title="Remove"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* New Documents */}
+              {documents.length > 0 && (
+                <div className="documents-list new-documents">
+                  <h4>New Documents to Upload</h4>
+                  {documents.map((doc, index) => (
+                    <div key={`new-doc-${index}`} className="document-item editable">
+                      <div className="document-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                          <path d="M14 2v6h6" />
+                        </svg>
+                      </div>
+                      <div className="document-fields">
+                        <input
+                          type="text"
+                          value={doc.name}
+                          onChange={(e) => updateDocument(index, 'name', e.target.value)}
+                          placeholder="Document name"
+                          className="document-name-input"
+                        />
+                        <select
+                          value={doc.documentType}
+                          onChange={(e) => updateDocument(index, 'documentType', e.target.value)}
+                          className="document-type-select"
+                        >
+                          {DOCUMENT_TYPES.map(type => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                          ))}
+                        </select>
+                        <span className="document-size">{(doc.fileSize / 1024 / 1024).toFixed(2)} MB</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-icon danger"
+                        onClick={() => removeNewDocument(index)}
+                        title="Remove"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

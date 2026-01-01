@@ -5,6 +5,7 @@
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 /**
  * Helper function for API calls
@@ -159,9 +160,11 @@ export const productAPI = {
    * Create new product (Admin only)
    */
   create: async (data) => {
+    // Handle FormData (with images) or plain object
+    const body = data instanceof FormData ? data : JSON.stringify(data);
     return apiCall('/products', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body,
     });
   },
 
@@ -169,9 +172,11 @@ export const productAPI = {
    * Update existing product (Admin only)
    */
   update: async (id, data) => {
+    // Handle FormData (with images) or plain object
+    const body = data instanceof FormData ? data : JSON.stringify(data);
     return apiCall(`/products/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body,
     });
   },
 
@@ -268,9 +273,11 @@ export const categoryAPI = {
    * Create category (Admin only)
    */
   create: async (data) => {
+    // Handle FormData (with image) or plain object
+    const body = data instanceof FormData ? data : JSON.stringify(data);
     return apiCall('/categories', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body,
     });
   },
 
@@ -278,9 +285,11 @@ export const categoryAPI = {
    * Update category (Admin only)
    */
   update: async (id, data) => {
+    // Handle FormData (with image) or plain object
+    const body = data instanceof FormData ? data : JSON.stringify(data);
     return apiCall(`/categories/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body,
     });
   },
 

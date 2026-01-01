@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { categoryAPI } from '../../services';
+import { categoryAPI, BACKEND_URL } from '../../services';
+import { useProducts } from '../../contexts';
 
 const CategoryForm = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const isEditing = Boolean(id);
+  const { id: slugOrId } = useParams();
+  const isEditing = Boolean(slugOrId);
   const fileInputRef = useRef(null);
+  const { refreshData } = useProducts();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [categoryId, setCategoryId] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -21,10 +24,10 @@ const CategoryForm = () => {
     specs: [''],
   });
 
-  // Image state
-  const [image, setImage] = useState(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
-  const [existingImage, setExistingImage] = useState('');
+  // Image state - similar to ProductForm pattern
+  const [newImage, setNewImage] = useState(null);
+  const [newImagePreview, setNewImagePreview] = useState('');
+  const [existingImage, setExistingImage] = useState(''); // URL from server
   const [dragActive, setDragActive] = useState(false);
 
   // Fetch category data if editing
@@ -32,18 +35,28 @@ const CategoryForm = () => {
     const fetchCategory = async () => {
       if (!isEditing) return;
 
+      console.log('=== FETCHING CATEGORY ===');
+      console.log('slugOrId:', slugOrId);
       setLoading(true);
       try {
-        const category = await categoryAPI.getBySlug(id);
+        const response = await categoryAPI.getBySlug(slugOrId);
+        console.log('API response:', response);
+        const category = response.data || response;
+        console.log('Parsed category:', category);
+        console.log('Category ID:', category.id);
+        setCategoryId(category.id);
+        const specs = category.specs?.length
+          ? category.specs.map(s => s.specValue || s)
+          : [''];
         setFormData({
           name: category.name || '',
           code: category.code || '',
           description: category.description || '',
-          featured: category.featured || false,
-          specs: category.specs?.length ? category.specs : [''],
+          featured: category.isFeatured || false,
+          specs,
         });
-        if (category.image) {
-          setExistingImage(category.image);
+        if (category.imageUrl) {
+          setExistingImage(category.imageUrl);
         }
       } catch (error) {
         console.error('Error fetching category:', error);
@@ -55,7 +68,7 @@ const CategoryForm = () => {
     };
 
     fetchCategory();
-  }, [id, isEditing, navigate]);
+  }, [slugOrId, isEditing, navigate]);
 
   // Handle input change
   const handleChange = (e) => {
@@ -65,7 +78,6 @@ const CategoryForm = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -128,7 +140,7 @@ const CategoryForm = () => {
   // Process selected file
   const processFile = (file) => {
     const isImage = file.type.startsWith('image/');
-    const isValidSize = file.size <= 5 * 1024 * 1024; // 5MB limit
+    const isValidSize = file.size <= 5 * 1024 * 1024;
 
     if (!isImage) {
       alert('Please select an image file.');
@@ -141,22 +153,22 @@ const CategoryForm = () => {
     }
 
     // Revoke previous preview URL
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
+    if (newImagePreview) {
+      URL.revokeObjectURL(newImagePreview);
     }
 
-    setImage(file);
-    setImagePreviewUrl(URL.createObjectURL(file));
-    setExistingImage(''); // Clear existing image when new one is selected
+    setNewImage(file);
+    setNewImagePreview(URL.createObjectURL(file));
+    setExistingImage(''); // Clear existing when new is added
   };
 
-  // Remove image
+  // Remove image (either new or existing)
   const removeImage = () => {
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
+    if (newImagePreview) {
+      URL.revokeObjectURL(newImagePreview);
     }
-    setImage(null);
-    setImagePreviewUrl('');
+    setNewImage(null);
+    setNewImagePreview('');
     setExistingImage('');
   };
 
@@ -179,52 +191,69 @@ const CategoryForm = () => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('=== FORM SUBMIT START ===');
+    console.log('isEditing:', isEditing);
+    console.log('categoryId:', categoryId);
 
     if (!validateForm()) {
+      console.log('Form validation failed');
       return;
     }
+    console.log('Form validation passed');
 
     setSaving(true);
 
     try {
-      // Create FormData for file upload
       const submitData = new FormData();
 
       // Add form fields
       submitData.append('name', formData.name);
       submitData.append('code', formData.code);
       submitData.append('description', formData.description);
-      submitData.append('featured', formData.featured);
+      submitData.append('isFeatured', formData.featured);
 
       // Add specs as JSON
       const filteredSpecs = formData.specs.filter(s => s.trim());
       submitData.append('specs', JSON.stringify(filteredSpecs));
 
-      // Add existing image to keep (if no new image)
-      if (existingImage && !image) {
-        submitData.append('existingImage', existingImage);
+      // Handle images - ALWAYS send existingImage (even if empty)
+      // This tells the backend what to keep
+      if (newImage) {
+        submitData.append('image', newImage);
       }
+      // Always send existingImage - if empty, backend knows to delete
+      submitData.append('existingImage', existingImage);
 
-      // Add new image
-      if (image) {
-        submitData.append('image', image);
-      }
+      console.log('About to make API call');
+      console.log('newImage:', newImage);
+      console.log('existingImage:', existingImage);
 
       if (isEditing) {
-        await categoryAPI.update(id, submitData);
+        if (!categoryId) {
+          throw new Error('Category ID not found. Please refresh and try again.');
+        }
+        console.log('Calling categoryAPI.update with ID:', categoryId);
+        const result = await categoryAPI.update(categoryId, submitData);
+        console.log('API result:', result);
       } else {
+        console.log('Calling categoryAPI.create');
         await categoryAPI.create(submitData);
       }
 
-      // Navigate back to categories list
+      console.log('API call successful, refreshing data');
+      await refreshData();
       navigate('/admin/categories');
     } catch (error) {
       console.error('Error saving category:', error);
-      alert('Failed to save category. Please try again.');
+      alert(`Failed to save category: ${error.message || 'Please try again.'}`);
     } finally {
       setSaving(false);
     }
   };
+
+  // Get the current image to display
+  const displayImage = newImagePreview || (existingImage ? (existingImage.startsWith('http') ? existingImage : `${BACKEND_URL}${existingImage}`) : '');
+  const hasImage = !!displayImage;
 
   if (loading) {
     return (
@@ -251,10 +280,55 @@ const CategoryForm = () => {
             Cancel
           </button>
           <button
-            type="submit"
+            type="button"
             className="btn-primary"
-            form="category-form"
             disabled={saving}
+            onClick={async (e) => {
+              e.preventDefault();
+              console.log('=== DIRECT SUBMIT BUTTON CLICKED ===');
+              console.log('categoryId:', categoryId);
+              console.log('existingImage state:', existingImage);
+
+              if (!formData.name.trim() || !formData.description.trim()) {
+                alert('Name and description are required');
+                return;
+              }
+
+              if (isEditing && !categoryId) {
+                alert('Category ID not found. Please refresh.');
+                return;
+              }
+
+              setSaving(true);
+              try {
+                const submitData = new FormData();
+                submitData.append('name', formData.name);
+                submitData.append('code', formData.code || '');
+                submitData.append('description', formData.description);
+                submitData.append('isFeatured', formData.featured);
+                submitData.append('specs', JSON.stringify(formData.specs.filter(s => s.trim())));
+
+                if (newImage) {
+                  submitData.append('image', newImage);
+                }
+                submitData.append('existingImage', existingImage || '');
+
+                console.log('FormData existingImage:', existingImage || '(empty)');
+                console.log('Making API call to update category:', categoryId);
+
+                const result = await categoryAPI.update(categoryId, submitData);
+                console.log('API Result:', result);
+
+                await refreshData();
+                alert('Category updated successfully!');
+                navigate('/admin/categories');
+              } catch (error) {
+                console.error('Update error:', error);
+                alert('Error: ' + (error.message || 'Unknown error'));
+              } finally {
+                setSaving(false);
+              }
+            }}
           >
             {saving ? 'Saving...' : (isEditing ? 'Update Category' : 'Create Category')}
           </button>
@@ -316,10 +390,9 @@ const CategoryForm = () => {
               <h3>Category Image</h3>
               <p className="form-section-desc">Upload an image to represent this category.</p>
 
-              {/* Show existing or new image preview */}
-              {(existingImage || imagePreviewUrl) ? (
+              {hasImage ? (
                 <div className="single-image-preview">
-                  <img src={imagePreviewUrl || existingImage} alt="Category" />
+                  <img src={displayImage} alt="Category" />
                   <div className="image-preview-overlay">
                     <button
                       type="button"
@@ -344,7 +417,7 @@ const CategoryForm = () => {
                       </svg>
                     </button>
                   </div>
-                  {imagePreviewUrl && <span className="new-badge">New</span>}
+                  {newImagePreview && <span className="new-badge">New</span>}
                 </div>
               ) : (
                 <div
@@ -443,8 +516,8 @@ const CategoryForm = () => {
               <h3>Preview</h3>
               <div className="category-preview-card">
                 <div className="preview-image">
-                  {(imagePreviewUrl || existingImage) ? (
-                    <img src={imagePreviewUrl || existingImage} alt="Preview" />
+                  {hasImage ? (
+                    <img src={displayImage} alt="Preview" />
                   ) : (
                     <div className="preview-placeholder">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

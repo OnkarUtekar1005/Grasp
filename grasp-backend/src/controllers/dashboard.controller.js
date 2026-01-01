@@ -34,13 +34,14 @@ async function getStats(req, res, next) {
       prisma.inquiry.count(),
       prisma.inquiry.count({ where: { status: 'NEW' } }),
 
-      // Low stock variants
-      prisma.productVariant.count({
-        where: {
-          stockQuantity: { lte: prisma.productVariant.fields.lowStockThreshold },
-          isActive: true,
-        },
-      }),
+      // Low stock variants - count variants where stockQuantity <= lowStockThreshold
+      // Using raw query since Prisma doesn't support comparing two columns
+      prisma.$queryRaw`
+        SELECT COUNT(*)::int as count
+        FROM product_variants
+        WHERE stock_quantity <= low_stock_threshold
+        AND is_active = true
+      `.then(result => result[0]?.count || 0),
 
       // Recent quotes
       prisma.quoteRequest.findMany({

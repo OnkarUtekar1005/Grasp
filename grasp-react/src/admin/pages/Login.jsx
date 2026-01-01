@@ -76,13 +76,6 @@ const Login = () => {
         <div className="admin-login-footer">
           <Link to="/">← Back to Website</Link>
         </div>
-
-        {/* Demo Credentials Notice */}
-        <div className="demo-credentials">
-          <p><strong>Demo Credentials:</strong></p>
-          <p>Email: admin@graspelectric.com</p>
-          <p>Password: admin123</p>
-        </div>
       </div>
     </div>
   );

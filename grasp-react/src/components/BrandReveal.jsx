@@ -1,19 +1,20 @@
+import logo from '../assets/images/logo.jpg';
+
 const BrandReveal = ({ isHidden, brandScale, brandOpacity }) => {
   return (
     <section className={`brand-reveal ${isHidden ? 'hidden' : ''}`}>
       <div className="brand-grid"></div>
       <div className="brand-orb"></div>
       <div className="brand-content">
-        <h1
-          className="brand-name"
+        <div
+          className="brand-logo"
           style={{
             transform: `scale(${brandScale})`,
             opacity: brandOpacity
           }}
         >
-          <span className="word-grasp">GRASP</span>
-          <span className="word-electric">ELECTRIC</span>
-        </h1>
+          <img src={logo} alt="Grasp Electric" />
+        </div>
         <p className="brand-tagline">Industrial Enclosure Systems</p>
       </div>
       <div className="scroll-hint">

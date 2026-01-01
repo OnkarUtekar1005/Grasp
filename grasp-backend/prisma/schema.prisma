@@ -81,7 +81,7 @@ model CategorySpec {
 
 model Product {
   id              String  @id @default(uuid())
-  categoryId      String  @map("category_id")
+  categoryId      String?  @map("category_id")
   name            String
   slug            String  @unique
   code            String?
@@ -106,7 +106,7 @@ model Product {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  category     Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category     Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   variants     ProductVariant[]
   images       ProductImage[]
   documents    ProductDocument[]

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useProducts } from '../../contexts';
+import { BACKEND_URL } from '../../services';
 
 const CategoriesList = () => {
   const { categories, products, deleteCategory } = useProducts();
@@ -16,15 +17,24 @@ const CategoriesList = () => {
     return products.filter(p => p.categoryId === categoryId).length;
   };
 
-  const handleDelete = (id) => {
-    const productCount = getProductCount(id);
-    if (productCount > 0) {
-      alert(`Cannot delete category. It has ${productCount} product(s) associated with it.`);
-      return;
+  const [deleteModal, setDeleteModal] = useState({ show: false, category: null });
+
+  const handleDeleteClick = (category) => {
+    setDeleteModal({ show: true, category });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.category) return;
+    try {
+      await deleteCategory(deleteModal.category.id);
+      setDeleteModal({ show: false, category: null });
+    } catch (error) {
+      alert('Failed to delete category. Please try again.');
     }
-    if (window.confirm('Are you sure you want to delete this category?')) {
-      deleteCategory(id);
-    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModal({ show: false, category: null });
   };
 
   return (
@@ -58,18 +68,21 @@ const CategoriesList = () => {
         {filteredCategories.map(category => (
           <div key={category.id} className="category-card-admin">
             <div className="category-card-image">
-              {category.image ? (
-                <img src={category.image} alt={category.name} />
-              ) : (
-                <div className="category-placeholder">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <path d="M21 15l-5-5L5 21" />
-                  </svg>
-                </div>
+              {category.imageUrl && (
+                <img
+                  src={category.imageUrl.startsWith('http') ? category.imageUrl : `${BACKEND_URL}${category.imageUrl}`}
+                  alt={category.name}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
               )}
-              {category.featured && (
+              <div className="category-placeholder" style={{ display: category.imageUrl ? 'none' : 'flex' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+              </div>
+              {category.isFeatured && (
                 <span className="featured-badge">Featured</span>
               )}
             </div>
@@ -88,7 +101,7 @@ const CategoriesList = () => {
                 </span>
                 <div className="category-specs">
                   {category.specs?.slice(0, 2).map((spec, index) => (
-                    <span key={index} className="spec-tag">{spec}</span>
+                    <span key={spec.id || index} className="spec-tag">{spec.specValue || spec}</span>
                   ))}
                 </div>
               </div>
@@ -100,13 +113,13 @@ const CategoriesList = () => {
                   <circle cx="12" cy="12" r="3" />
                 </svg>
               </Link>
-              <Link to={`/admin/categories/edit/${category.id}`} className="action-btn edit" title="Edit">
+              <Link to={`/admin/categories/edit/${category.slug}`} className="action-btn edit" title="Edit">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
               </Link>
-              <button onClick={() => handleDelete(category.id)} className="action-btn delete" title="Delete">
+              <button onClick={() => handleDeleteClick(category)} className="action-btn delete" title="Delete">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                 </svg>
@@ -123,6 +136,44 @@ const CategoriesList = () => {
           </svg>
           <p>No categories found matching your search.</p>
           <Link to="/admin/categories/new" className="btn-secondary">Create Your First Category</Link>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.show && (
+        <div className="delete-modal-overlay" onClick={handleDeleteCancel}>
+          <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-modal-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3>Delete Category</h3>
+            <p className="delete-modal-category">"{deleteModal.category?.name}"</p>
+            {getProductCount(deleteModal.category?.id) > 0 && (
+              <div className="delete-modal-warning">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4m0 4h.01" />
+                </svg>
+                <span>
+                  This category has <strong>{getProductCount(deleteModal.category?.id)} product(s)</strong> linked to it.
+                  These products will be unlinked and you'll need to reassign them manually.
+                </span>
+              </div>
+            )}
+            <p className="delete-modal-text">
+              This action cannot be undone. The category and its image will be permanently deleted.
+            </p>
+            <div className="delete-modal-actions">
+              <button className="btn-secondary" onClick={handleDeleteCancel}>
+                Cancel
+              </button>
+              <button className="btn-danger" onClick={handleDeleteConfirm}>
+                Delete Category
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

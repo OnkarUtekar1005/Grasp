@@ -18,6 +18,7 @@ const Navbar = ({ isVisible }) => {
           <div className="nav-links">
             <Link to="/products" className={isActive('/products') ? 'active' : ''}>Products</Link>
             <Link to="/gallery" className={isActive('/gallery') ? 'active' : ''}>Gallery</Link>
+            <Link to="/downloads" className={isActive('/downloads') ? 'active' : ''}>Downloads</Link>
             <Link to="/about" className={isActive('/about') ? 'active' : ''}>About Us</Link>
             <Link to="/contact" className={isActive('/contact') ? 'active' : ''}>Contact</Link>
           </div>

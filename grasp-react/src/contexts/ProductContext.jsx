@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { productsData, categoriesData } from '../data/products';
+import { productAPI, categoryAPI } from '../services';
 
 const ProductContext = createContext(null);
 
@@ -16,12 +16,24 @@ export const ProductProvider = ({ children }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [productsRes, categoriesRes] = await Promise.all([
+        productAPI.getAll(),
+        categoryAPI.getAll()
+      ]);
+      setProducts(productsRes.data || []);
+      setCategories(categoriesRes.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // Load initial data
-    // TODO: Replace with API calls
-    setProducts(productsData);
-    setCategories(categoriesData);
-    setLoading(false);
+    fetchData();
   }, []);
 
   // Get all products
@@ -47,68 +59,92 @@ export const ProductProvider = ({ children }) => {
 
   // Get featured products
   const getFeaturedProducts = () => {
-    return products.filter(product => product.featured);
+    return products.filter(product => product.isFeatured || product.featured);
   };
 
   // Search products
   const searchProducts = (query) => {
     const searchTerm = query.toLowerCase();
     return products.filter(product =>
-      product.name.toLowerCase().includes(searchTerm) ||
-      product.description.toLowerCase().includes(searchTerm) ||
-      product.code.toLowerCase().includes(searchTerm)
+      product.name?.toLowerCase().includes(searchTerm) ||
+      product.description?.toLowerCase().includes(searchTerm) ||
+      product.code?.toLowerCase().includes(searchTerm)
     );
   };
 
-  // Admin functions
-  const addProduct = (product) => {
-    const newProduct = {
-      ...product,
-      id: Date.now(),
-      createdAt: new Date().toISOString()
-    };
-    setProducts(prev => [...prev, newProduct]);
-    return newProduct;
+  // Refresh data from API
+  const refreshData = () => fetchData();
+
+  // Admin functions - these now call API and refresh data
+  const addProduct = async (product) => {
+    try {
+      const result = await productAPI.create(product);
+      await fetchData(); // Refresh data
+      return result.data;
+    } catch (error) {
+      console.error('Error adding product:', error);
+      throw error;
+    }
   };
 
-  const updateProduct = (id, updates) => {
-    setProducts(prev =>
-      prev.map(product =>
-        product.id === id ? { ...product, ...updates, updatedAt: new Date().toISOString() } : product
-      )
-    );
+  const updateProduct = async (id, updates) => {
+    try {
+      const result = await productAPI.update(id, updates);
+      await fetchData(); // Refresh data
+      return result.data;
+    } catch (error) {
+      console.error('Error updating product:', error);
+      throw error;
+    }
   };
 
-  const deleteProduct = (id) => {
-    setProducts(prev => prev.filter(product => product.id !== id));
+  const deleteProduct = async (id) => {
+    try {
+      await productAPI.delete(id);
+      await fetchData(); // Refresh data
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      throw error;
+    }
   };
 
-  const addCategory = (category) => {
-    const newCategory = {
-      ...category,
-      id: Date.now(),
-      createdAt: new Date().toISOString()
-    };
-    setCategories(prev => [...prev, newCategory]);
-    return newCategory;
+  const addCategory = async (category) => {
+    try {
+      const result = await categoryAPI.create(category);
+      await fetchData(); // Refresh data
+      return result.data;
+    } catch (error) {
+      console.error('Error adding category:', error);
+      throw error;
+    }
   };
 
-  const updateCategory = (id, updates) => {
-    setCategories(prev =>
-      prev.map(category =>
-        category.id === id ? { ...category, ...updates } : category
-      )
-    );
+  const updateCategory = async (id, updates) => {
+    try {
+      const result = await categoryAPI.update(id, updates);
+      await fetchData(); // Refresh data
+      return result.data;
+    } catch (error) {
+      console.error('Error updating category:', error);
+      throw error;
+    }
   };
 
-  const deleteCategory = (id) => {
-    setCategories(prev => prev.filter(category => category.id !== id));
+  const deleteCategory = async (id) => {
+    try {
+      await categoryAPI.delete(id);
+      await fetchData(); // Refresh data
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      throw error;
+    }
   };
 
   const value = {
     products,
     categories,
     loading,
+    refreshData,
     getAllProducts,
     getProductById,
     getProductsByCategory,

@@ -1,11 +1,60 @@
+import { useState, useEffect, useRef } from 'react';
 import { Navbar, Footer } from '../components';
 
 const stats = [
-  { number: '20+', label: 'Years Experience' },
-  { number: '500+', label: 'Products' },
-  { number: '1000+', label: 'Clients Served' },
-  { number: '100%', label: 'Made in India' }
+  { number: 20, suffix: '+', label: 'Years Experience' },
+  { number: 500, suffix: '+', label: 'Products' },
+  { number: 1000, suffix: '+', label: 'Clients Served' },
+  { number: 100, suffix: '%', label: 'Made in India' }
 ];
+
+// Custom hook for count-up animation
+const useCountUp = (end, duration = 2000, startCounting) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!startCounting) return;
+
+    let startTime = null;
+    const startValue = 0;
+
+    const animate = (currentTime) => {
+      if (!startTime) startTime = currentTime;
+      const progress = Math.min((currentTime - startTime) / duration, 1);
+
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      const currentCount = Math.floor(easeOutQuart * (end - startValue) + startValue);
+
+      setCount(currentCount);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setCount(end);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [end, duration, startCounting]);
+
+  return count;
+};
+
+// Stat Item Component with count-up
+const StatItem = ({ stat, isVisible }) => {
+  const count = useCountUp(stat.number, 2000, isVisible);
+
+  return (
+    <div className={`stat-item ${isVisible ? 'animate' : ''}`}>
+      <div className="stat-number">
+        {count}
+        <span className="stat-suffix">{stat.suffix}</span>
+      </div>
+      <div className="stat-label">{stat.label}</div>
+    </div>
+  );
+};
 
 const values = [
   {
@@ -73,6 +122,28 @@ const industries = [
 ];
 
 const About = () => {
+  const [statsVisible, setStatsVisible] = useState(false);
+  const statsRef = useRef(null);
+
+  // Intersection Observer for stats section
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setStatsVisible(true);
+          observer.disconnect(); // Only animate once
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    if (statsRef.current) {
+      observer.observe(statsRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <>
       <Navbar isVisible={true} />
@@ -87,13 +158,10 @@ const About = () => {
         </div>
       </section>
 
-      <section className="about-stats">
+      <section className="about-stats" ref={statsRef}>
         <div className="about-stats-inner">
           {stats.map((stat, index) => (
-            <div key={index} className="stat-item">
-              <div className="stat-number">{stat.number}</div>
-              <div className="stat-label">{stat.label}</div>
-            </div>
+            <StatItem key={index} stat={stat} isVisible={statsVisible} />
           ))}
         </div>
       </section>

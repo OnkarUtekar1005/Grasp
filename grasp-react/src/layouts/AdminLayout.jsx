@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -5,8 +6,14 @@ const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isActive = (path) => location.pathname.startsWith(path);
+
+  // Close sidebar when route changes (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   const menuItems = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -23,13 +30,29 @@ const AdminLayout = () => {
 
   return (
     <div className="admin-layout">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="admin-sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="admin-sidebar">
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="admin-sidebar-header">
           <Link to="/admin/dashboard" className="admin-logo">
             <span className="logo-icon">GE</span>
             <span className="logo-text">Admin Panel</span>
           </Link>
+          <button
+            className="admin-sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <nav className="admin-nav">
@@ -67,6 +90,15 @@ const AdminLayout = () => {
       <div className="admin-main">
         <header className="admin-header">
           <div className="admin-header-left">
+            {/* Mobile Menu Button */}
+            <button
+              className="admin-menu-toggle"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <h1 className="admin-page-title">
               {menuItems.find(item => isActive(item.path))?.label || 'Admin'}
             </h1>

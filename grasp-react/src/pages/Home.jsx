@@ -6,6 +6,7 @@ import {
   ProductCategories,
   TrustedClients,
   Industries,
+  FAQ,
   Footer
 } from '../components';
 
@@ -84,6 +85,8 @@ const Home = () => {
       <TrustedClients />
 
       <Industries />
+
+      <FAQ />
 
       <Footer />
     </>

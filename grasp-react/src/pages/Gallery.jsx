@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Navbar, Footer } from '../components';
 import { useProducts } from '../contexts';
+import { BACKEND_URL } from '../services';
 
 const Gallery = () => {
   const { products, categories } = useProducts();
@@ -13,19 +14,25 @@ const Gallery = () => {
   useEffect(() => {
     const images = [];
     products.forEach(product => {
+      // Get categoryId - could be direct or via category object
+      const categoryId = product.categoryId || product.category?.id;
+
       // Add product images if they exist
       if (product.images && product.images.length > 0) {
         product.images.forEach((img, index) => {
+          // Handle both image objects and string URLs
+          const imageUrl = typeof img === 'string' ? img : img.imageUrl;
+          const fullUrl = imageUrl?.startsWith('http') ? imageUrl : `${BACKEND_URL}${imageUrl}`;
           images.push({
             id: `${product.id}-${index}`,
-            url: img,
+            url: fullUrl,
             productId: product.id,
             productName: product.name,
             productSlug: product.slug,
             productCode: product.code,
             productDescription: product.description,
             productPrice: product.price,
-            categoryId: product.categoryId,
+            categoryId: categoryId,
             isPlaceholder: false
           });
         });
@@ -40,7 +47,7 @@ const Gallery = () => {
           productCode: product.code,
           productDescription: product.description,
           productPrice: product.price,
-          categoryId: product.categoryId,
+          categoryId: categoryId,
           isPlaceholder: true
         });
       }
@@ -48,10 +55,10 @@ const Gallery = () => {
     setGalleryImages(images);
   }, [products]);
 
-  // Filter images by category
+  // Filter images by category (categoryId is a UUID string, not integer)
   const filteredImages = selectedCategory === 'all'
     ? galleryImages
-    : galleryImages.filter(img => img.categoryId === parseInt(selectedCategory));
+    : galleryImages.filter(img => img.categoryId === selectedCategory);
 
   // Get category name
   const getCategoryName = (categoryId) => {

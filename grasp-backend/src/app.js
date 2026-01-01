@@ -13,8 +13,11 @@ const app = express();
 // Trust proxy (for accurate IP addresses behind reverse proxy)
 app.set('trust proxy', 1);
 
-// Security headers
-app.use(helmet());
+// Security headers - configure to allow cross-origin images
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+}));
 
 // CORS configuration
 const corsOptions = {

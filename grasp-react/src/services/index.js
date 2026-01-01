@@ -1,1 +1,1 @@
-export { default as api, productAPI, categoryAPI, inquiryAPI } from './api';
+export { default as api, productAPI, categoryAPI, inquiryAPI, quoteAPI, BACKEND_URL } from './api';

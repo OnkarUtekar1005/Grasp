@@ -1,6 +1,6 @@
 const express = require('express');
 const { productController } = require('../controllers');
-const { authenticate, validate, uploadImage, uploadDocument } = require('../middleware');
+const { authenticate, validate, uploadImage, uploadDocument, uploadMixed } = require('../middleware');
 const {
   createProductSchema,
   updateProductSchema,
@@ -24,9 +24,15 @@ router.get('/search', productController.search);
 router.get('/category/:slug', productController.getByCategory);
 router.get('/:slug', validate(productSlugSchema), productController.getBySlug);
 
-// Admin routes - Products
-router.post('/', authenticate, validate(createProductSchema), productController.create);
-router.put('/:id', authenticate, validate(updateProductSchema), productController.update);
+// Admin routes - Products (accepts both images and documents)
+router.post('/', authenticate, uploadMixed.fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'documents', maxCount: 10 }
+]), validate(createProductSchema), productController.create);
+router.put('/:id', authenticate, uploadMixed.fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'documents', maxCount: 10 }
+]), validate(updateProductSchema), productController.update);
 router.delete('/:id', authenticate, validate(productIdSchema), productController.remove);
 
 // Admin routes - Variants

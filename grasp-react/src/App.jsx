@@ -2,9 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider, ProductProvider } from './contexts';
 import { ProtectedRoute, ScrollToTop } from './components';
 import { AdminLayout } from './layouts';
-import { Home, Products, ProductDetail, CategoryProducts, Gallery, About, Contact } from './pages';
+import { Home, Products, ProductDetail, CategoryProducts, Gallery, About, Contact, QuoteRequest, Downloads } from './pages';
 import HomeElectrical from './pages/HomeElectrical';
-import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm } from './admin/pages';
+import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm, Inquiries } from './admin/pages';
 import './styles/index.css';
 
 // 404 Not Found Component
@@ -32,6 +32,8 @@ function App() {
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/quote" element={<QuoteRequest />} />
+            <Route path="/downloads" element={<Downloads />} />
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<Login />} />
@@ -51,7 +53,7 @@ function App() {
               <Route path="categories" element={<CategoriesList />} />
               <Route path="categories/new" element={<CategoryForm />} />
               <Route path="categories/edit/:id" element={<CategoryForm />} />
-              <Route path="inquiries" element={<div className="admin-placeholder">Inquiries List - Coming Soon</div>} />
+              <Route path="inquiries" element={<Inquiries />} />
               <Route path="settings" element={<div className="admin-placeholder">Settings Page - Coming Soon</div>} />
             </Route>
 

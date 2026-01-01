@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Navbar, Footer } from '../components';
+import { inquiryAPI } from '../services';
+import { useProducts } from '../contexts';
 
 const contactInfo = [
   {
@@ -44,23 +46,64 @@ const contactInfo = [
 ];
 
 const Contact = () => {
+  const { categories } = useProducts();
   const [formData, setFormData] = useState({
-    name: '',
+    contactName: '',
     email: '',
-    company: '',
+    companyName: '',
     phone: '',
     product: '',
     message: ''
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' });
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    // Clear status when user starts typing again
+    if (submitStatus.message) {
+      setSubmitStatus({ type: '', message: '' });
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert('Thank you for your inquiry. We will get back to you soon!');
+    setSubmitting(true);
+    setSubmitStatus({ type: '', message: '' });
+
+    try {
+      await inquiryAPI.submit({
+        contactName: formData.contactName,
+        email: formData.email,
+        companyName: formData.companyName || undefined,
+        phone: formData.phone || undefined,
+        subject: formData.product ? `Product Inquiry: ${formData.product}` : 'General Inquiry',
+        message: formData.message,
+        inquiryType: 'GENERAL',
+      });
+
+      setSubmitStatus({
+        type: 'success',
+        message: 'Thank you for your inquiry. We will get back to you soon!'
+      });
+      // Reset form
+      setFormData({
+        contactName: '',
+        email: '',
+        companyName: '',
+        phone: '',
+        product: '',
+        message: ''
+      });
+    } catch (error) {
+      console.error('Error submitting inquiry:', error);
+      setSubmitStatus({
+        type: 'error',
+        message: error.message || 'Failed to submit inquiry. Please try again or contact us directly.'
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -110,12 +153,12 @@ const Contact = () => {
             <form onSubmit={handleSubmit} className="contact-form">
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="name">Full Name *</label>
+                  <label htmlFor="contactName">Full Name *</label>
                   <input
                     type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
+                    id="contactName"
+                    name="contactName"
+                    value={formData.contactName}
                     onChange={handleChange}
                     placeholder="Your full name"
                     required
@@ -136,12 +179,12 @@ const Contact = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="company">Company Name</label>
+                  <label htmlFor="companyName">Company Name</label>
                   <input
                     type="text"
-                    id="company"
-                    name="company"
-                    value={formData.company}
+                    id="companyName"
+                    name="companyName"
+                    value={formData.companyName}
                     onChange={handleChange}
                     placeholder="Your company"
                   />
@@ -167,15 +210,10 @@ const Contact = () => {
                   onChange={handleChange}
                 >
                   <option value="">Select a product category</option>
-                  <option value="hinged">Inbuilt Hinged Enclosures</option>
-                  <option value="plain-wall">Plain Wall Industrial Enclosures</option>
-                  <option value="modular">Modular Panel Enclosures</option>
-                  <option value="junction">Junction & Termination Boxes</option>
-                  <option value="distribution">Power Distribution Boxes</option>
-                  <option value="external">Plain Wall Enclosures with External Mounting</option>
-                  <option value="electronics">Electronics, Electrical & Automation Enclosures</option>
-                  <option value="accessories">Standard Accessories</option>
-                  <option value="custom">Custom Solutions</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                  <option value="Custom Solutions">Custom Solutions</option>
                 </select>
               </div>
               <div className="form-group">
@@ -190,8 +228,13 @@ const Contact = () => {
                   required
                 ></textarea>
               </div>
-              <button type="submit" className="form-submit">
-                Send Message
+              {submitStatus.message && (
+                <div className={`form-status ${submitStatus.type}`}>
+                  {submitStatus.message}
+                </div>
+              )}
+              <button type="submit" className="form-submit" disabled={submitting}>
+                {submitting ? 'Sending...' : 'Send Message'}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M22 2L11 13" />
                   <path d="M22 2L15 22L11 13L2 9L22 2Z" />
