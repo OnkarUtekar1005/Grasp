@@ -6,6 +6,7 @@ const quoteController = require('./quote.controller');
 const inquiryController = require('./inquiry.controller');
 const dashboardController = require('./dashboard.controller');
 const galleryController = require('./gallery.controller');
+const pdfController = require('./pdf.controller');
 
 module.exports = {
   authController,
@@ -16,4 +17,5 @@ module.exports = {
   inquiryController,
   dashboardController,
   galleryController,
+  pdfController,
 };

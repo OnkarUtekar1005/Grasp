@@ -7,6 +7,7 @@ const quoteRoutes = require('./quote.routes');
 const inquiryRoutes = require('./inquiry.routes');
 const dashboardRoutes = require('./dashboard.routes');
 const galleryRoutes = require('./gallery.routes');
+const pdfRoutes = require('./pdf.routes');
 
 const router = express.Router();
 
@@ -24,5 +25,6 @@ router.use('/quotes', quoteRoutes);
 router.use('/inquiries', inquiryRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/gallery', galleryRoutes);
+router.use('/pdf', pdfRoutes);
 
 module.exports = router;

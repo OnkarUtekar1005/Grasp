@@ -4,38 +4,45 @@ import { useProducts } from '../contexts';
 import { Navbar, Footer } from '../components';
 import { BACKEND_URL } from '../services';
 
-// Function to download page as PDF
-const downloadPageAsPDF = (productName) => {
-  // Hide elements that shouldn't be in PDF
-  const navbar = document.querySelector('.navbar');
-  const footer = document.querySelector('.footer');
-  const downloadBtn = document.querySelector('.download-pdf-btn');
-  const ctaSection = document.querySelector('.product-cta-section');
-
-  if (navbar) navbar.style.display = 'none';
-  if (footer) footer.style.display = 'none';
-  if (downloadBtn) downloadBtn.style.display = 'none';
-  if (ctaSection) ctaSection.style.display = 'none';
-
-  // Trigger print dialog (user can save as PDF)
-  window.print();
-
-  // Restore elements after print
-  setTimeout(() => {
-    if (navbar) navbar.style.display = '';
-    if (footer) footer.style.display = '';
-    if (downloadBtn) downloadBtn.style.display = '';
-    if (ctaSection) ctaSection.style.display = '';
-  }, 100);
-};
-
 const ProductDetail = () => {
   const { slug } = useParams();
   const { getProductById, getCategoryById, products } = useProducts();
   const [activeTab, setActiveTab] = useState('specs');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [specCarouselIndex, setSpecCarouselIndex] = useState(0);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
   const specsRef = useRef(null);
+
+  // Function to download product PDF from backend
+  const downloadProductPDF = async () => {
+    if (downloadingPDF) return;
+
+    setDownloadingPDF(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/v1/pdf/products/${slug}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${slug}-datasheet.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('PDF download failed:', error);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
 
   const product = getProductById(slug);
 
@@ -291,15 +298,28 @@ const ProductDetail = () => {
                 Request Quote
               </Link>
               <button
-                onClick={() => downloadPageAsPDF(product.name)}
+                onClick={downloadProductPDF}
                 className="btn-secondary download-pdf-btn"
+                disabled={downloadingPDF}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <path d="M12 18v-6M9 15l3 3 3-3" />
-                </svg>
-                Download PDF
+                {downloadingPDF ? (
+                  <>
+                    <svg className="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                      <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <path d="M12 18v-6M9 15l3 3 3-3" />
+                    </svg>
+                    Download PDF
+                  </>
+                )}
               </button>
             </div>
 
