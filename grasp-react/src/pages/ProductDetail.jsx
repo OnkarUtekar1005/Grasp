@@ -244,30 +244,27 @@ const ProductDetail = () => {
 
           {/* Product Info */}
           <div className="product-info-enhanced">
-            <div className="product-meta">
+            <h1 className="product-title-enhanced">{product.name}</h1>
+
+            <div className="product-categories">
               {productCategories.map((cat, index) => (
                 <Link key={cat.id || index} to={`/products?category=${cat.slug}`} className="product-category-tag">
                   {cat.name}
                 </Link>
               ))}
-              <div className={`stock-badge ${product.isActive !== false ? 'in-stock' : 'out-stock'}`}>
-                <span className="status-dot"></span>
-                {product.isActive !== false ? 'In Stock' : 'Out of Stock'}
-              </div>
             </div>
-
-            <h1 className="product-title-enhanced">{product.name}</h1>
 
             <p className="product-description-enhanced">
               {product.fullDescription || product.description}
             </p>
 
-            {/* Quick Specs Preview */}
+            {/* Quick Specs Cards */}
             {product.dynamicSpecs?.length > 0 && (
-              <div className="product-quick-specs">
+              <div className="product-hero-specs">
                 {product.dynamicSpecs.slice(0, 4).map((spec, index) => (
-                  <div key={spec.id || index} className="quick-spec-item">
-                    <span className="quick-spec-value">{spec.specValue}</span>
+                  <div key={spec.id || index} className="hero-spec-card">
+                    <span className="hero-spec-label">{spec.specKey}</span>
+                    <span className="hero-spec-value">{spec.specValue}</span>
                   </div>
                 ))}
               </div>
@@ -350,19 +347,18 @@ const ProductDetail = () => {
         </div>
       </section>
 
-      {/* Specifications Section - Clean Table Layout */}
+      {/* Specifications Section - Two-Column Grid Layout */}
       {product.dynamicSpecs?.length > 0 && (
         <section className="product-specifications-section" ref={specsRef}>
           <div className="product-specifications-wrapper">
             <div className="specs-header">
-              <h2>Technical Specifications</h2>
-              <p>Detailed specifications for {product.name}</p>
+              <h2>Specifications</h2>
             </div>
 
-            <div className="specs-table">
+            <div className="specs-grid">
               {product.dynamicSpecs.map((spec, index) => (
-                <div key={spec.id || index} className="spec-row">
-                  <div className="spec-name">{spec.specKey || `Specification ${index + 1}`}</div>
+                <div key={spec.id || index} className="spec-item">
+                  <div className="spec-label">{spec.specKey || 'Spec'}</div>
                   <div className="spec-value">{spec.specValue}</div>
                 </div>
               ))}

@@ -302,14 +302,25 @@ async function create(req, res, next) {
             categoryId: cat.id,
           })),
         },
-        // Store specs as dynamicSpecs
+        // Store specs as dynamicSpecs (supports key-value objects and plain strings)
         dynamicSpecs: Array.isArray(specs) && specs.length > 0
           ? {
-              create: specs.map((specValue, index) => ({
-                specKey: `spec_${index}`,
-                specValue,
-                sortOrder: index,
-              })),
+              create: specs.map((spec, index) => {
+                // Support new format: {key, value} objects
+                if (typeof spec === 'object' && spec.key && spec.value) {
+                  return {
+                    specKey: spec.key.trim(),
+                    specValue: spec.value.trim(),
+                    sortOrder: index,
+                  };
+                }
+                // Backward compatibility: plain string values
+                return {
+                  specKey: `spec_${index}`,
+                  specValue: String(spec),
+                  sortOrder: index,
+                };
+              }),
             }
           : undefined,
         // Store features
@@ -502,17 +513,29 @@ async function update(req, res, next) {
       }
     }
 
-    // Update specs if provided
+    // Update specs if provided (supports key-value objects and plain strings)
     if (Array.isArray(specs)) {
       await prisma.productDynamicSpec.deleteMany({ where: { productId: id } });
       if (specs.length > 0) {
         await prisma.productDynamicSpec.createMany({
-          data: specs.map((specValue, index) => ({
-            productId: id,
-            specKey: `spec_${index}`,
-            specValue,
-            sortOrder: index,
-          })),
+          data: specs.map((spec, index) => {
+            // Support new format: {key, value} objects
+            if (typeof spec === 'object' && spec.key && spec.value) {
+              return {
+                productId: id,
+                specKey: spec.key.trim(),
+                specValue: spec.value.trim(),
+                sortOrder: index,
+              };
+            }
+            // Backward compatibility: plain string values
+            return {
+              productId: id,
+              specKey: `spec_${index}`,
+              specValue: String(spec),
+              sortOrder: index,
+            };
+          }),
         });
       }
     }

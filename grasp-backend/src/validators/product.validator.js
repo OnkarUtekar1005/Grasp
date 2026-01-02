@@ -27,6 +27,35 @@ const arrayFromFormData = z.union([
   }),
 ]).optional();
 
+// Spec object schema for key-value pairs
+const specObjectSchema = z.object({
+  key: z.string().min(1, 'Spec key is required').max(100),
+  value: z.string().min(1, 'Spec value is required').max(500),
+});
+
+// Helper to handle FormData JSON strings for specs (key-value objects)
+const specsArrayFromFormData = z.union([
+  z.array(specObjectSchema),
+  z.array(z.string()), // Backward compatibility: plain strings
+  z.string().transform(val => {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        return parsed.map(item => {
+          if (typeof item === 'string') {
+            // Old format: convert to key-value
+            return { key: 'Specification', value: item };
+          }
+          return item;
+        });
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }),
+]).optional();
+
 const createProductSchema = {
   body: z.object({
     name: z.string().min(1, 'Name is required').max(200),
@@ -41,7 +70,7 @@ const createProductSchema = {
     priceType: z.string().optional(),
     inStock: booleanFromFormData.default(true),
     featured: booleanFromFormData.default(false),
-    specs: arrayFromFormData,
+    specs: specsArrayFromFormData,
     features: arrayFromFormData,
     existingImages: z.string().optional(), // JSON string of existing images
   }).refine(
@@ -67,7 +96,7 @@ const updateProductSchema = {
     priceType: z.string().optional(),
     inStock: booleanFromFormData,
     featured: booleanFromFormData,
-    specs: arrayFromFormData,
+    specs: specsArrayFromFormData,
     features: arrayFromFormData,
     existingImages: z.string().optional(), // JSON string of existing images
   }),

@@ -2,6 +2,16 @@ const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 
+// Load logo as base64 for embedding in PDF
+const logoPath = path.join(__dirname, '../assets/logo.png');
+let logoBase64 = '';
+try {
+  const logoBuffer = fs.readFileSync(logoPath);
+  logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+} catch (err) {
+  console.warn('Could not load logo for PDF:', err.message);
+}
+
 /**
  * Generate HTML template for product PDF
  */
@@ -73,16 +83,20 @@ const generateProductHTML = (product, baseUrl) => {
     }
 
     .logo-box {
-      width: 50px;
-      height: 50px;
+      width: 60px;
+      height: 60px;
       background: white;
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 16pt;
-      color: #C21F26;
+      padding: 5px;
+    }
+
+    .logo-box img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
     }
 
     .company-info h1 {
@@ -324,12 +338,6 @@ const generateProductHTML = (product, baseUrl) => {
       margin-bottom: 2px;
     }
 
-    .footer-right .gstin {
-      font-size: 8pt;
-      color: #777;
-      margin-top: 5px;
-    }
-
     /* Document Info */
     .doc-info {
       text-align: center;
@@ -345,7 +353,9 @@ const generateProductHTML = (product, baseUrl) => {
     <!-- Header -->
     <div class="header">
       <div class="header-left">
-        <div class="logo-box">GE</div>
+        <div class="logo-box">
+          ${logoBase64 ? `<img src="${logoBase64}" alt="Grasp Electric Logo" />` : 'GE'}
+        </div>
         <div class="company-info">
           <h1>GRASP ELECTRIC PRIVATE LIMITED</h1>
           <p>India's Leading Enclosure Manufacturer</p>
@@ -428,7 +438,6 @@ const generateProductHTML = (product, baseUrl) => {
           <p>Phone: +91 98711 91712</p>
           <p>Email: info@graspelectric.com</p>
           <p>Web: www.graspelectric.com</p>
-          <p class="gstin">GSTIN: 08AAGCG5190C1ZP</p>
         </div>
       </div>
     </div>

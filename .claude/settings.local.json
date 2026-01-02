@@ -14,7 +14,11 @@
       "Bash(npm uninstall:*)",
       "Bash(cat:*)",
       "Bash(curl:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "WebFetch(domain:vaayura.com)",
+      "Bash(node prisma/seed-products.js:*)",
+      "Bash(git checkout:*)",
+      "WebFetch(domain:www.vaayura.com)"
     ]
   }
 }

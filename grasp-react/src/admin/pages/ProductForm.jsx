@@ -2,6 +2,22 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { productAPI, categoryAPI, BACKEND_URL } from '../../services';
 import { useProducts } from '../../contexts';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const DOCUMENT_TYPES = [
   { value: 'DATASHEET', label: 'Datasheet' },
@@ -10,6 +26,70 @@ const DOCUMENT_TYPES = [
   { value: 'CAD', label: 'CAD Drawing' },
   { value: 'OTHER', label: 'Other Document' },
 ];
+
+// Sortable Spec Item Component for drag-and-drop
+const SortableSpecItem = ({ spec, index, onUpdate, onRemove, canRemove }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: spec.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="spec-field-item">
+      <button
+        type="button"
+        className="drag-handle"
+        {...attributes}
+        {...listeners}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="8" y1="6" x2="16" y2="6" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+          <line x1="8" y1="18" x2="16" y2="18" />
+        </svg>
+      </button>
+
+      <input
+        type="text"
+        value={spec.key}
+        onChange={(e) => onUpdate(index, 'key', e.target.value)}
+        placeholder="e.g., Material"
+        className="spec-key-input"
+      />
+
+      <input
+        type="text"
+        value={spec.value}
+        onChange={(e) => onUpdate(index, 'value', e.target.value)}
+        placeholder="e.g., ABS Plastic"
+        className="spec-value-input"
+      />
+
+      {canRemove && (
+        <button
+          type="button"
+          className="btn-icon danger"
+          onClick={() => onRemove(index)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+};
 
 const ProductForm = () => {
   const navigate = useNavigate();
@@ -38,7 +118,7 @@ const ProductForm = () => {
     priceType: 'fixed', // 'fixed' or 'quote'
     inStock: true,
     featured: false,
-    specs: [''],
+    specs: [{ id: crypto.randomUUID(), key: '', value: '' }],
     features: [''],
   });
 
@@ -73,12 +153,15 @@ const ProductForm = () => {
             setProductId(product.id);
           }
 
-          // Extract values from spec/feature objects if needed
+          // Extract specs as key-value objects
           const specs = product.dynamicSpecs?.length
-            ? product.dynamicSpecs.map(s => s.specValue || s.value || s)
-            : product.specs?.length
-              ? product.specs.map(s => s.specValue || s.value || s)
-              : [''];
+            ? product.dynamicSpecs.map(s => ({
+                id: s.id || crypto.randomUUID(),
+                // If key looks auto-generated (spec_0, spec_1), show empty for user to fill in
+                key: s.specKey?.startsWith('spec_') ? '' : (s.specKey || ''),
+                value: s.specValue || '',
+              }))
+            : [{ id: crypto.randomUUID(), key: '', value: '' }];
           const features = product.features?.length
             ? product.features.map(f => f.featureText || f.featureValue || f.value || f)
             : [''];
@@ -180,6 +263,55 @@ const ProductForm = () => {
     setFormData(prev => ({
       ...prev,
       [field]: prev[field].filter((_, i) => i !== index)
+    }));
+  };
+
+  // DnD Kit sensors for specs reordering
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end for specs reordering
+  const handleSpecsDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      setFormData(prev => {
+        const oldIndex = prev.specs.findIndex(s => s.id === active.id);
+        const newIndex = prev.specs.findIndex(s => s.id === over.id);
+        return {
+          ...prev,
+          specs: arrayMove(prev.specs, oldIndex, newIndex),
+        };
+      });
+    }
+  };
+
+  // Update spec field (key or value)
+  const handleSpecUpdate = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      specs: prev.specs.map((spec, i) =>
+        i === index ? { ...spec, [field]: value } : spec
+      ),
+    }));
+  };
+
+  // Add new spec
+  const addSpec = () => {
+    setFormData(prev => ({
+      ...prev,
+      specs: [...prev.specs, { id: crypto.randomUUID(), key: '', value: '' }],
+    }));
+  };
+
+  // Remove spec
+  const removeSpec = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      specs: prev.specs.filter((_, i) => i !== index),
     }));
   };
 
@@ -419,8 +551,10 @@ const ProductForm = () => {
       submitData.append('inStock', formData.inStock);
       submitData.append('featured', formData.featured);
 
-      // Add specs and features as JSON
-      const filteredSpecs = formData.specs.filter(s => s.trim());
+      // Add specs and features as JSON (require BOTH key and value to avoid duplicate key errors)
+      const filteredSpecs = formData.specs
+        .filter(s => s.key.trim() && s.value.trim())
+        .map(s => ({ key: s.key.trim(), value: s.value.trim() }));
       const filteredFeatures = formData.features.filter(f => f.trim());
       submitData.append('specs', JSON.stringify(filteredSpecs));
       submitData.append('features', JSON.stringify(filteredFeatures));
@@ -659,46 +793,48 @@ const ProductForm = () => {
               )}
             </div>
 
-            {/* Specifications */}
+            {/* Specifications - Key-Value with Drag & Drop */}
             <div className="form-section">
               <h3>Specifications</h3>
-              <p className="form-section-desc">Add technical specifications (e.g., IP67, UL94 V-0, UV Resistant)</p>
+              <p className="form-section-desc">
+                Add technical specifications as key-value pairs (e.g., Material: ABS Plastic)
+              </p>
 
-              <div className="array-field">
-                {formData.specs.map((spec, index) => (
-                  <div key={index} className="array-field-item">
-                    <input
-                      type="text"
-                      value={spec}
-                      onChange={(e) => handleArrayChange('specs', index, e.target.value)}
-                      placeholder="e.g., IP67"
-                    />
-                    {formData.specs.length > 1 && (
-                      <button
-                        type="button"
-                        className="btn-icon danger"
-                        onClick={() => removeArrayItem('specs', index)}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="btn-add-item"
-                  onClick={() => addArrayItem('specs')}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleSpecsDragEnd}
+              >
+                <SortableContext
+                  items={formData.specs.map(s => s.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  Add Specification
-                </button>
-              </div>
+                  <div className="specs-field-list">
+                    {formData.specs.map((spec, index) => (
+                      <SortableSpecItem
+                        key={spec.id}
+                        spec={spec}
+                        index={index}
+                        onUpdate={handleSpecUpdate}
+                        onRemove={removeSpec}
+                        canRemove={formData.specs.length > 1}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+
+              <button
+                type="button"
+                className="btn-add-item"
+                onClick={addSpec}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add Specification
+              </button>
             </div>
 
             {/* Features */}

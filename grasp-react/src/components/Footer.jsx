@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useProducts } from '../contexts';
 
 const Footer = () => {
+  const { categories } = useProducts();
+  const displayCategories = categories.slice(0, 4);
+
   return (
     <footer className="footer">
       <div className="footer-inner">
@@ -14,15 +18,15 @@ const Footer = () => {
               <p><strong>Phone:</strong> +91 98711 91712</p>
               <p><strong>Email:</strong> info@graspelectric.com</p>
               <p><strong>Website:</strong> www.graspelectric.com</p>
-              <p><strong>GSTIN:</strong> 08AAGCG5190C1ZP</p>
             </div>
           </div>
           <div className="footer-col">
             <h4>Products</h4>
-            <Link to="/products/category/hinged-enclosures">Hinged Enclosures</Link>
-            <Link to="/products/category/modular-enclosures">Modular Panel Enclosures</Link>
-            <Link to="/products/category/junction-boxes">Junction Boxes</Link>
-            <Link to="/products/category/distribution-boxes">Distribution Boxes</Link>
+            {displayCategories.map((category) => (
+              <Link key={category.id} to={`/products/category/${category.slug}`}>
+                {category.name}
+              </Link>
+            ))}
             <Link to="/products">All Products</Link>
           </div>
           <div className="footer-col">
@@ -61,7 +65,7 @@ const Footer = () => {
         </div>
         <div className="footer-bottom">
           <span>&copy; 2025 Grasp Electric Private Limited</span>
-          <span>GSTIN: 08AAGCG5190C1ZP | 100% Made in India</span>
+          <span>100% Made in India</span>
         </div>
       </div>
     </footer>

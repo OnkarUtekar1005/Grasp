@@ -107,15 +107,20 @@ const ProductShowcase = ({ isVisible }) => {
               data-index={index}
             >
               {item.slug ? (
-                <Link to={`/products/${item.slug}`} className="showcase-card-image">
-                  <img src={item.image} alt={item.title} />
+                <Link
+                  to={`/products/${item.slug}`}
+                  className="showcase-card-image"
+                  style={{ backgroundImage: `url(${item.image})` }}
+                >
                   <div className="showcase-card-overlay">
                     <span className="showcase-card-title">{item.title}</span>
                   </div>
                 </Link>
               ) : (
-                <div className="showcase-card-image">
-                  <img src={item.image} alt={item.title} />
+                <div
+                  className="showcase-card-image"
+                  style={{ backgroundImage: `url(${item.image})` }}
+                >
                   <div className="showcase-card-overlay">
                     <span className="showcase-card-title">{item.title}</span>
                   </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Navbar, Footer } from '../components';
+import { Navbar, Footer, TrustedClients } from '../components';
+import { BACKEND_URL } from '../services';
 
 const stats = [
   { number: 20, suffix: '+', label: 'Years Experience' },
@@ -185,16 +186,10 @@ const About = () => {
             </p>
           </div>
           <div className="about-story-image">
-            <div className="story-image-placeholder">
-              <svg viewBox="0 0 200 200">
-                <rect x="20" y="40" width="160" height="120" stroke="currentColor" fill="none" strokeWidth="2" />
-                <rect x="40" y="60" width="40" height="30" stroke="currentColor" fill="none" />
-                <rect x="100" y="60" width="60" height="80" stroke="currentColor" fill="none" />
-                <line x1="40" y1="100" x2="80" y2="100" stroke="currentColor" />
-                <line x1="40" y1="110" x2="80" y2="110" stroke="currentColor" />
-                <line x1="40" y1="120" x2="80" y2="120" stroke="currentColor" />
-              </svg>
-            </div>
+            <img
+              src={`${BACKEND_URL}/uploads/products/images/aboutus.png`}
+              alt="Grasp Electric Manufacturing Facility"
+            />
           </div>
         </div>
       </section>
@@ -249,13 +244,7 @@ const About = () => {
         </div>
       </section>
 
-      <section className="about-clients">
-        <div className="about-clients-inner">
-          <div className="section-label">Trusted By</div>
-          <h2 className="section-title">Our Valued Clients</h2>
-          <p className="section-desc">Serving major corporations and numerous recognized companies across various industrial sectors, including Nestle and many more.</p>
-        </div>
-      </section>
+      <TrustedClients />
 
       <Footer />
     </>
