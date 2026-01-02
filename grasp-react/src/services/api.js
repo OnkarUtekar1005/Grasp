@@ -464,6 +464,103 @@ export const dashboardAPI = {
   },
 };
 
+// ============================================
+// GALLERY API SERVICES
+// ============================================
+
+export const galleryAPI = {
+  /**
+   * Get all gallery images (public)
+   */
+  getAll: async (options = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(options).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, value);
+      }
+    });
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiCall(`/gallery${query}`);
+  },
+
+  /**
+   * Get featured gallery images
+   */
+  getFeatured: async (limit = 6) => {
+    return apiCall(`/gallery/featured?limit=${limit}`);
+  },
+
+  /**
+   * Get gallery image by ID
+   */
+  getById: async (id) => {
+    return apiCall(`/gallery/${id}`);
+  },
+
+  /**
+   * Get all gallery images for admin (includes inactive)
+   */
+  adminGetAll: async (options = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(options).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, value);
+      }
+    });
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiCall(`/gallery/admin/list${query}`);
+  },
+
+  /**
+   * Create gallery image (Admin only)
+   */
+  create: async (data) => {
+    const body = data instanceof FormData ? data : JSON.stringify(data);
+    return apiCall('/gallery', {
+      method: 'POST',
+      body,
+    });
+  },
+
+  /**
+   * Update gallery image (Admin only)
+   */
+  update: async (id, data) => {
+    const body = data instanceof FormData ? data : JSON.stringify(data);
+    return apiCall(`/gallery/${id}`, {
+      method: 'PUT',
+      body,
+    });
+  },
+
+  /**
+   * Delete gallery image (Admin only)
+   */
+  delete: async (id) => {
+    return apiCall(`/gallery/${id}`, { method: 'DELETE' });
+  },
+
+  /**
+   * Update sort order (Admin only)
+   */
+  updateOrder: async (items) => {
+    return apiCall('/gallery/order/bulk', {
+      method: 'PUT',
+      body: JSON.stringify({ items }),
+    });
+  },
+
+  /**
+   * Link products to gallery image (Admin only)
+   */
+  linkProducts: async (id, productIds) => {
+    return apiCall(`/gallery/${id}/products`, {
+      method: 'PUT',
+      body: JSON.stringify({ productIds }),
+    });
+  },
+};
+
 // Export all APIs
 export default {
   auth: authAPI,
@@ -473,4 +570,5 @@ export default {
   quote: quoteAPI,
   admin: adminAPI,
   dashboard: dashboardAPI,
+  gallery: galleryAPI,
 };

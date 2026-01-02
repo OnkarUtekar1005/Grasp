@@ -1,10 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider, ProductProvider } from './contexts';
-import { ProtectedRoute, ScrollToTop } from './components';
+import { ProtectedRoute, SmoothScroll } from './components';
 import { AdminLayout } from './layouts';
 import { Home, Products, ProductDetail, CategoryProducts, Gallery, About, Contact, QuoteRequest, Downloads } from './pages';
 import HomeElectrical from './pages/HomeElectrical';
-import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm, Inquiries } from './admin/pages';
+import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm, Inquiries, GalleryList, GalleryForm } from './admin/pages';
 import './styles/index.css';
 
 // 404 Not Found Component
@@ -21,7 +21,7 @@ function App() {
     <AuthProvider>
       <ProductProvider>
         <Router>
-          <ScrollToTop />
+          <SmoothScroll>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
@@ -53,6 +53,9 @@ function App() {
               <Route path="categories" element={<CategoriesList />} />
               <Route path="categories/new" element={<CategoryForm />} />
               <Route path="categories/edit/:id" element={<CategoryForm />} />
+              <Route path="gallery" element={<GalleryList />} />
+              <Route path="gallery/new" element={<GalleryForm />} />
+              <Route path="gallery/edit/:id" element={<GalleryForm />} />
               <Route path="inquiries" element={<Inquiries />} />
               <Route path="settings" element={<div className="admin-placeholder">Settings Page - Coming Soon</div>} />
             </Route>
@@ -60,6 +63,7 @@ function App() {
             {/* 404 Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </SmoothScroll>
         </Router>
       </ProductProvider>
     </AuthProvider>

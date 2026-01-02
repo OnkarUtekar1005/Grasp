@@ -11,8 +11,10 @@ const Footer = () => {
               India's leading manufacturer housing the country's largest range of Thermoplastic & Polycarbonate enclosures. Serving industries for over two decades.
             </p>
             <div className="footer-contact-quick">
+              <p><strong>Phone:</strong> +91 98711 91712</p>
               <p><strong>Email:</strong> info@graspelectric.com</p>
-              <p><strong>Phone:</strong> +91 9643409644</p>
+              <p><strong>Website:</strong> www.graspelectric.com</p>
+              <p><strong>GSTIN:</strong> 08AAGCG5190C1ZP</p>
             </div>
           </div>
           <div className="footer-col">
@@ -36,24 +38,30 @@ const Footer = () => {
             <Link to="/about">About Us</Link>
             <Link to="/contact">Contact Us</Link>
             <Link to="/products">Products</Link>
+            <Link to="/gallery">Gallery</Link>
+            <Link to="/downloads">Downloads</Link>
           </div>
           <div className="footer-col">
-            <h4>Locations</h4>
+            <h4>Address</h4>
             <div className="footer-address">
-              <span className="address-label">Corporate Office:</span>
-              <span>Plot 180, Sector 8, IMT Manesar</span>
-              <span>Gurgaon - 122051</span>
-            </div>
-            <div className="footer-address">
-              <span className="address-label">Sales Office:</span>
-              <span>62 Rama Road, Najafgarh Road</span>
-              <span>New Delhi - 110015</span>
+              <span className="address-label">Grasp Electric Private Limited</span>
+              <span>F-56-57, RIICO Industrial Area</span>
+              <span>Chopanki, Bhiwadi</span>
+              <span>Dist. Alwar, Rajasthan - 301019</span>
+              <a
+                href="https://goo.gl/maps/HvwnsCeBfqYUq49j9"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-map-link"
+              >
+                View on Google Maps
+              </a>
             </div>
           </div>
         </div>
         <div className="footer-bottom">
-          <span>&copy; 2025 Grasp Electric Pvt. Ltd. (Formerly Maharaja Plastic Industries)</span>
-          <span>100% Made in India | UL, CPRI, NABL Tested</span>
+          <span>&copy; 2025 Grasp Electric Private Limited</span>
+          <span>GSTIN: 08AAGCG5190C1ZP | 100% Made in India</span>
         </div>
       </div>
     </footer>

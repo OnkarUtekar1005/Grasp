@@ -93,9 +93,9 @@ const ProductCategories = () => {
         <div className="categories-inner">
           <div className="categories-header">
             <div className="categories-label">Our Products</div>
-            <h2 className="categories-title">Product <span>Categories</span></h2>
+            <h2 className="categories-title">Product <span>Ranges</span></h2>
           </div>
-          <div className="categories-loading">Loading categories...</div>
+          <div className="categories-loading">Loading product ranges...</div>
         </div>
       </section>
     );
@@ -106,7 +106,7 @@ const ProductCategories = () => {
       <div className="categories-inner">
         <div className="categories-header">
           <div className="categories-label">Our Products</div>
-          <h2 className="categories-title">Product <span>Categories</span></h2>
+          <h2 className="categories-title">Product <span>Ranges</span></h2>
           <p className="categories-subtitle">
             Explore our comprehensive range of industrial enclosure solutions designed
             for demanding environments and critical applications.

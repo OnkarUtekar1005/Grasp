@@ -172,7 +172,7 @@ const About = () => {
             <div className="section-label">Our Story</div>
             <h2 className="section-title">Two Decades of Excellence</h2>
             <p>
-              Grasp Electric Pvt. Ltd. (formerly Maharaja Plastic Industries) has established itself as India's leading manufacturer of Thermoplastic & Polycarbonate enclosures over more than two decades of dedicated service.
+              Grasp Electric Private Limited has established itself as India's leading manufacturer of Thermoplastic & Polycarbonate enclosures over more than two decades of dedicated service.
             </p>
             <p>
               We specialize in manufacturing world-class enclosure solutions for multiple industries including Solar, Electrical, Electronics, Automation, and Chemical sectors. Our comprehensive product range includes standard enclosures, hinged enclosures, modular panel enclosures, junction boxes, power distribution boxes, and custom-manufactured electrical panels.

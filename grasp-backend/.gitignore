@@ -4,9 +4,7 @@ node_modules/
 # Environment
 .env
 
-# Uploads
-uploads/*
-!uploads/.gitkeep
+
 
 # Logs
 *.log

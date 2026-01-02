@@ -60,7 +60,7 @@ const CategoryForm = () => {
         }
       } catch (error) {
         console.error('Error fetching category:', error);
-        alert('Category not found');
+        alert('Product range not found');
         navigate('/admin/categories');
       } finally {
         setLoading(false);
@@ -177,7 +177,7 @@ const CategoryForm = () => {
     const newErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Category name is required';
+      newErrors.name = 'Product range name is required';
     }
 
     if (!formData.description.trim()) {
@@ -245,7 +245,7 @@ const CategoryForm = () => {
       navigate('/admin/categories');
     } catch (error) {
       console.error('Error saving category:', error);
-      alert(`Failed to save category: ${error.message || 'Please try again.'}`);
+      alert(`Failed to save product range: ${error.message || 'Please try again.'}`);
     } finally {
       setSaving(false);
     }
@@ -268,8 +268,8 @@ const CategoryForm = () => {
     <div className="category-form-page">
       <div className="product-form-header">
         <div>
-          <h1>{isEditing ? 'Edit Category' : 'Add New Category'}</h1>
-          <p>Fill in the details below to {isEditing ? 'update the' : 'create a new'} category.</p>
+          <h1>{isEditing ? 'Edit Product Range' : 'Add New Product Range'}</h1>
+          <p>Fill in the details below to {isEditing ? 'update the' : 'create a new'} product range.</p>
         </div>
         <div className="product-form-actions">
           <button
@@ -286,6 +286,7 @@ const CategoryForm = () => {
             onClick={async (e) => {
               e.preventDefault();
               console.log('=== DIRECT SUBMIT BUTTON CLICKED ===');
+              console.log('isEditing:', isEditing);
               console.log('categoryId:', categoryId);
               console.log('existingImage state:', existingImage);
 
@@ -313,24 +314,30 @@ const CategoryForm = () => {
                 }
                 submitData.append('existingImage', existingImage || '');
 
-                console.log('FormData existingImage:', existingImage || '(empty)');
-                console.log('Making API call to update category:', categoryId);
-
-                const result = await categoryAPI.update(categoryId, submitData);
-                console.log('API Result:', result);
-
-                await refreshData();
-                alert('Category updated successfully!');
+                let result;
+                if (isEditing) {
+                  console.log('Making API call to update category:', categoryId);
+                  result = await categoryAPI.update(categoryId, submitData);
+                  console.log('API Result:', result);
+                  await refreshData();
+                  alert('Product range updated successfully!');
+                } else {
+                  console.log('Making API call to create category');
+                  result = await categoryAPI.create(submitData);
+                  console.log('API Result:', result);
+                  await refreshData();
+                  alert('Product range created successfully!');
+                }
                 navigate('/admin/categories');
               } catch (error) {
-                console.error('Update error:', error);
+                console.error('Save error:', error);
                 alert('Error: ' + (error.message || 'Unknown error'));
               } finally {
                 setSaving(false);
               }
             }}
           >
-            {saving ? 'Saving...' : (isEditing ? 'Update Category' : 'Create Category')}
+            {saving ? 'Saving...' : (isEditing ? 'Update Product Range' : 'Create Product Range')}
           </button>
         </div>
       </div>
@@ -344,7 +351,7 @@ const CategoryForm = () => {
               <h3>Basic Information</h3>
 
               <div className="form-group">
-                <label htmlFor="name">Category Name *</label>
+                <label htmlFor="name">Product Range Name *</label>
                 <input
                   type="text"
                   id="name"
@@ -358,7 +365,7 @@ const CategoryForm = () => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="code">Category Code</label>
+                <label htmlFor="code">Range Code</label>
                 <input
                   type="text"
                   id="code"
@@ -367,7 +374,7 @@ const CategoryForm = () => {
                   onChange={handleChange}
                   placeholder="e.g., GE-PC Series"
                 />
-                <small>A short code to identify the category (e.g., GE-PC Series)</small>
+                <small>A short code to identify the product range (e.g., GE-PC Series)</small>
               </div>
 
               <div className="form-group">
@@ -387,12 +394,12 @@ const CategoryForm = () => {
 
             {/* Category Image */}
             <div className="form-section">
-              <h3>Category Image</h3>
-              <p className="form-section-desc">Upload an image to represent this category.</p>
+              <h3>Product Range Image</h3>
+              <p className="form-section-desc">Upload an image to represent this product range.</p>
 
               {hasImage ? (
                 <div className="single-image-preview">
-                  <img src={displayImage} alt="Category" />
+                  <img src={displayImage} alt="Product Range" />
                   <div className="image-preview-overlay">
                     <button
                       type="button"
@@ -450,7 +457,7 @@ const CategoryForm = () => {
             {/* Specifications */}
             <div className="form-section">
               <h3>Specifications</h3>
-              <p className="form-section-desc">Add key specifications for this category (e.g., IP67, UL94 V-0)</p>
+              <p className="form-section-desc">Add key specifications for this product range (e.g., IP67, UL94 V-0)</p>
 
               <div className="array-field">
                 {formData.specs.map((spec, index) => (
@@ -504,10 +511,10 @@ const CategoryForm = () => {
                     checked={formData.featured}
                     onChange={handleChange}
                   />
-                  <span className="checkbox-custom" />
-                  <span>Featured Category</span>
+                  <span className="checkmark"></span>
+                  <span>Featured Product Range</span>
                 </label>
-                <small>Featured categories are highlighted on the homepage</small>
+                <small>Featured product ranges are highlighted on the homepage</small>
               </div>
             </div>
 
@@ -529,8 +536,8 @@ const CategoryForm = () => {
                   )}
                 </div>
                 <div className="preview-content">
-                  <h4>{formData.name || 'Category Name'}</h4>
-                  <p>{formData.code || 'Category Code'}</p>
+                  <h4>{formData.name || 'Product Range Name'}</h4>
+                  <p>{formData.code || 'Range Code'}</p>
                   <div className="preview-specs">
                     {formData.specs.filter(s => s.trim()).slice(0, 2).map((spec, i) => (
                       <span key={i}>{spec}</span>

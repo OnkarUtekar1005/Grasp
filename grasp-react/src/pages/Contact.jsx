@@ -5,41 +5,60 @@ import { useProducts } from '../contexts';
 
 const contactInfo = [
   {
-    title: 'Corporate Office',
-    content: 'Plot 180, Sector 8\nIMT Manesar, Gurgaon\n122051, Haryana, India',
+    title: 'Address',
+    content: 'F-56-57, RIICO Industrial Area\nChopanki, Bhiwadi\nDist. Alwar, Rajasthan - 301019',
     icon: (
       <svg viewBox="0 0 24 24">
         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
         <circle cx="12" cy="10" r="3" />
       </svg>
-    )
-  },
-  {
-    title: 'Sales & Marketing Office',
-    content: '62 Rama Road\nNajafgarh Road Industrial Area\nNew Delhi - 110015, India',
-    icon: (
-      <svg viewBox="0 0 24 24">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    )
+    ),
+    link: 'https://goo.gl/maps/HvwnsCeBfqYUq49j9',
+    linkText: 'View on Google Maps'
   },
   {
     title: 'Phone',
-    content: '+91 9643409644\n+91 9643409648\n+91 8299729601',
+    content: '+91 98711 91712',
     icon: (
       <svg viewBox="0 0 24 24">
         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
       </svg>
-    )
+    ),
+    link: 'tel:+919871191712'
   },
   {
     title: 'Email',
-    content: 'info@graspelectric.com\nexport@graspelectric.com\nhelp@graspelectric.com',
+    content: 'info@graspelectric.com',
     icon: (
       <svg viewBox="0 0 24 24">
         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
         <polyline points="22,6 12,13 2,6" />
+      </svg>
+    ),
+    link: 'mailto:info@graspelectric.com'
+  },
+  {
+    title: 'Website',
+    content: 'www.graspelectric.com',
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+    ),
+    link: 'https://www.graspelectric.com'
+  },
+  {
+    title: 'GSTIN',
+    content: '08AAGCG5190C1ZP',
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
       </svg>
     )
   }
@@ -125,7 +144,7 @@ const Contact = () => {
           <div className="contact-info-section">
             <h2>Contact Information</h2>
             <p className="contact-intro">
-              Grasp Electric Pvt. Ltd. (formerly Maharaja Plastic Industries) - India's leading manufacturer of Thermoplastic & Polycarbonate enclosures.
+              Grasp Electric Private Limited - India's leading manufacturer of Thermoplastic & Polycarbonate enclosures. Serving industries for over two decades.
             </p>
             <div className="contact-info-grid">
               {contactInfo.map((info, index) => (
@@ -134,17 +153,14 @@ const Contact = () => {
                   <div className="contact-info-content">
                     <h3>{info.title}</h3>
                     <p>{info.content}</p>
+                    {info.link && (
+                      <a href={info.link} target={info.link.startsWith('http') ? '_blank' : undefined} rel={info.link.startsWith('http') ? 'noopener noreferrer' : undefined} className="contact-info-link">
+                        {info.linkText || info.content}
+                      </a>
+                    )}
                   </div>
                 </div>
               ))}
-            </div>
-            <div className="contact-departments">
-              <h3>Department Contacts</h3>
-              <ul>
-                <li><strong>General Inquiries:</strong> info@graspelectric.com</li>
-                <li><strong>International/Export:</strong> export@graspelectric.com</li>
-                <li><strong>Customer Support:</strong> help@graspelectric.com</li>
-              </ul>
             </div>
           </div>
 
@@ -209,7 +225,7 @@ const Contact = () => {
                   value={formData.product}
                   onChange={handleChange}
                 >
-                  <option value="">Select a product category</option>
+                  <option value="">Select a product range</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.name}>{cat.name}</option>
                   ))}

@@ -1,7 +1,204 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Navbar, Footer } from '../components';
 import { productAPI, categoryAPI, BACKEND_URL } from '../services';
+
+// Fuzzy search utility functions
+const fuzzyMatch = (text, query) => {
+  if (!text || !query) return { match: false, score: 0 };
+
+  const textLower = text.toLowerCase();
+  const queryLower = query.toLowerCase();
+
+  // Exact match - highest score
+  if (textLower === queryLower) return { match: true, score: 100 };
+
+  // Starts with query - very high score
+  if (textLower.startsWith(queryLower)) return { match: true, score: 90 };
+
+  // Contains exact query - high score
+  if (textLower.includes(queryLower)) return { match: true, score: 80 };
+
+  // Word starts with query
+  const words = textLower.split(/[\s\-_]+/);
+  for (const word of words) {
+    if (word.startsWith(queryLower)) return { match: true, score: 75 };
+  }
+
+  // Fuzzy character sequence match (characters appear in order)
+  let queryIndex = 0;
+  let consecutiveMatches = 0;
+  let maxConsecutive = 0;
+
+  for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {
+    if (textLower[i] === queryLower[queryIndex]) {
+      queryIndex++;
+      consecutiveMatches++;
+      maxConsecutive = Math.max(maxConsecutive, consecutiveMatches);
+    } else {
+      consecutiveMatches = 0;
+    }
+  }
+
+  if (queryIndex === queryLower.length) {
+    // All query characters found in order
+    const score = 50 + (maxConsecutive / queryLower.length) * 20;
+    return { match: true, score };
+  }
+
+  // Levenshtein distance for typo tolerance (only for short queries)
+  if (queryLower.length >= 3 && queryLower.length <= 10) {
+    const distance = levenshteinDistance(textLower, queryLower);
+    const maxLen = Math.max(textLower.length, queryLower.length);
+    const similarity = 1 - (distance / maxLen);
+
+    // Allow up to 2 character differences for queries >= 4 chars
+    if (distance <= Math.min(2, Math.floor(queryLower.length / 2))) {
+      return { match: true, score: similarity * 40 };
+    }
+
+    // Check if any word in text is similar
+    for (const word of words) {
+      if (word.length >= 3) {
+        const wordDistance = levenshteinDistance(word, queryLower);
+        if (wordDistance <= Math.min(2, Math.floor(queryLower.length / 2))) {
+          return { match: true, score: (1 - wordDistance / Math.max(word.length, queryLower.length)) * 35 };
+        }
+      }
+    }
+  }
+
+  return { match: false, score: 0 };
+};
+
+// Levenshtein distance calculation
+const levenshteinDistance = (str1, str2) => {
+  const m = str1.length;
+  const n = str2.length;
+
+  if (m === 0) return n;
+  if (n === 0) return m;
+
+  const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,      // deletion
+        dp[i][j - 1] + 1,      // insertion
+        dp[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+
+  return dp[m][n];
+};
+
+// Search a product across multiple fields
+const fuzzySearchProduct = (product, query, categories) => {
+  if (!query) return { match: true, score: 0 };
+
+  // Get category names and codes for this product
+  let categoryNames = [];
+  let categoryCodes = [];
+
+  if (product.categories && Array.isArray(product.categories)) {
+    product.categories.forEach(pc => {
+      if (pc.category?.name) categoryNames.push(pc.category.name);
+      if (pc.category?.code) categoryCodes.push(pc.category.code);
+    });
+  } else if (product.categoryId) {
+    const cat = categories.find(c => c.id === product.categoryId);
+    if (cat) {
+      categoryNames.push(cat.name);
+      if (cat.code) categoryCodes.push(cat.code);
+    }
+  }
+
+  // Search across all fields with different weights
+  const searches = [
+    { text: product.code, weight: 1.2 },        // Product code - highest priority
+    { text: product.name, weight: 1.1 },        // Product name - high priority
+    ...categoryCodes.map(code => ({ text: code, weight: 1.0 })),  // Category code
+    ...categoryNames.map(name => ({ text: name, weight: 0.9 })),  // Category name
+  ];
+
+  let bestScore = 0;
+  let hasMatch = false;
+
+  for (const { text, weight } of searches) {
+    if (text) {
+      const result = fuzzyMatch(text, query);
+      if (result.match) {
+        hasMatch = true;
+        bestScore = Math.max(bestScore, result.score * weight);
+      }
+    }
+  }
+
+  return { match: hasMatch, score: bestScore };
+};
+
+// Memoized Filter Section Component - defined outside to prevent recreation
+const FilterSection = memo(({ title, children, defaultOpen = true }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div className="filter-section">
+      <button className="filter-section-header" onClick={() => setIsOpen(!isOpen)}>
+        <span>{title}</span>
+        <svg className={`filter-chevron ${isOpen ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {isOpen && <div className="filter-section-content">{children}</div>}
+    </div>
+  );
+});
+
+// Memoized Product Card for grid view
+const ProductGridCard = memo(({ product, categoryName, renderProductSVG, BACKEND_URL }) => {
+  const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
+  const imageUrl = primaryImage?.imageUrl || product.image;
+
+  return (
+    <Link
+      to={`/products/${product.slug || product.id}`}
+      className="product-grid-card"
+    >
+      <div className="product-grid-image">
+        {imageUrl ? (
+          <img
+            src={imageUrl.startsWith('http') ? imageUrl : `${BACKEND_URL}${imageUrl}`}
+            alt={product.name}
+            loading="lazy"
+          />
+        ) : (
+          renderProductSVG(product.id % 6 + 1)
+        )}
+        {(product.isFeatured || product.featured) && <span className="product-featured-badge">Featured</span>}
+        {product.isActive === false && <span className="product-stock-badge">Out of Stock</span>}
+      </div>
+      <div className="product-grid-content">
+        <h3 className="product-grid-name">{product.name}</h3>
+        {categoryName && <div className="product-grid-category">{categoryName}</div>}
+        <p className="product-grid-desc">{product.description || product.desc}</p>
+        {product.price && (
+          <div className="product-grid-price">₹{product.price.toLocaleString()}</div>
+        )}
+        <span className="product-grid-link">
+          View Details
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </Link>
+  );
+});
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,6 +211,28 @@ const Products = () => {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
   const [showMoreProducts, setShowMoreProducts] = useState({});
+  const productsGridRef = useRef(null);
+
+  // Disable pointer events during scroll to prevent hover lag
+  useEffect(() => {
+    let scrollTimeout;
+    const handleScroll = () => {
+      if (productsGridRef.current) {
+        productsGridRef.current.style.pointerEvents = 'none';
+      }
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        if (productsGridRef.current) {
+          productsGridRef.current.style.pointerEvents = '';
+        }
+      }, 100);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, []);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -27,10 +246,24 @@ const Products = () => {
     featuredOnly: false
   });
 
-  // Get products for a category
-  const getProductsForCategory = (categoryId) => {
-    return products.filter(p => p.categoryId === categoryId);
-  };
+  // Memoize products per category to avoid recalculating on every render
+  const productsByCategory = useMemo(() => {
+    const map = {};
+    categories.forEach(cat => {
+      map[cat.id] = products.filter(p => {
+        if (p.categories && Array.isArray(p.categories)) {
+          return p.categories.some(pc => pc.categoryId === cat.id || pc.category?.id === cat.id);
+        }
+        return p.categoryId === cat.id;
+      });
+    });
+    return map;
+  }, [products, categories]);
+
+  // Get products for a category from memoized map
+  const getProductsForCategory = useCallback((categoryId) => {
+    return productsByCategory[categoryId] || [];
+  }, [productsByCategory]);
 
   // Toggle category expansion to show products
   const toggleCategoryExpand = (categorySlug) => {
@@ -124,22 +357,38 @@ const Products = () => {
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
-    // Search filter
+    // Fuzzy search filter
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(product =>
-        product.name.toLowerCase().includes(query) ||
-        product.description?.toLowerCase().includes(query) ||
-        product.code?.toLowerCase().includes(query)
-      );
+      const query = searchQuery.trim();
+
+      // Apply fuzzy search and get scores
+      const scoredResults = result.map(product => ({
+        product,
+        searchResult: fuzzySearchProduct(product, query, categories)
+      }));
+
+      // Filter matches and sort by score (highest first)
+      result = scoredResults
+        .filter(item => item.searchResult.match)
+        .sort((a, b) => b.searchResult.score - a.searchResult.score)
+        .map(item => item.product);
     }
 
-    // Category filter
+    // Category filter (supports both old categoryId and new categories array)
     if (filters.categories.length > 0) {
       const categoryIds = categories
         .filter(cat => filters.categories.includes(cat.slug))
         .map(cat => cat.id);
-      result = result.filter(product => categoryIds.includes(product.categoryId));
+      result = result.filter(product => {
+        // Check new junction table format first
+        if (product.categories && Array.isArray(product.categories)) {
+          return product.categories.some(pc =>
+            categoryIds.includes(pc.categoryId) || categoryIds.includes(pc.category?.id)
+          );
+        }
+        // Fall back to old direct categoryId
+        return categoryIds.includes(product.categoryId);
+      });
     }
 
     // Specific product filter (when products are selected from category sub-list)
@@ -188,11 +437,20 @@ const Products = () => {
       result = result.filter(product => product.isFeatured || product.featured);
     }
 
+    // Helper to get first category name for sorting
+    const getFirstCategoryName = (product) => {
+      // Check new junction table format first
+      if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+        return product.categories[0]?.category?.name || '';
+      }
+      // Fall back to old format
+      return product.category?.name || categories.find(c => c.id === product.categoryId)?.name || 'ZZZ';
+    };
+
     // Sort by category first (A-Z), then by product name within each category (A-Z)
     result.sort((a, b) => {
-      // Get category names - check both nested category object and categoryId lookup
-      const catA = a.category?.name || categories.find(c => c.id === a.categoryId)?.name || 'ZZZ';
-      const catB = b.category?.name || categories.find(c => c.id === b.categoryId)?.name || 'ZZZ';
+      const catA = getFirstCategoryName(a);
+      const catB = getFirstCategoryName(b);
 
       // First sort by category name (A-Z)
       const categoryCompare = catA.toLowerCase().localeCompare(catB.toLowerCase());
@@ -268,7 +526,7 @@ const Products = () => {
     return [];
   };
 
-  const renderProductSVG = (id) => {
+  const renderProductSVG = useCallback((id) => {
     const svgMap = {
       1: (
         <svg viewBox="0 0 120 120">
@@ -354,24 +612,9 @@ const Products = () => {
     );
 
     return svgMap[id] || defaultSVG;
-  };
+  }, []);
 
-  // Filter Section Component
-  const FilterSection = ({ title, children, defaultOpen = true }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-    return (
-      <div className="filter-section">
-        <button className="filter-section-header" onClick={() => setIsOpen(!isOpen)}>
-          <span>{title}</span>
-          <svg className={`filter-chevron ${isOpen ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </button>
-        {isOpen && <div className="filter-section-content">{children}</div>}
-      </div>
-    );
-  };
-
+  
   return (
     <>
       <Navbar isVisible={true} />
@@ -398,7 +641,7 @@ const Products = () => {
               <input
                 type="text"
                 className="search-input"
-                placeholder="Search products..."
+                placeholder="Search by name, code, or product range..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -479,8 +722,8 @@ const Products = () => {
             </div>
 
             <div className="filter-sidebar-content">
-              {/* Categories with Product Sub-list */}
-              <FilterSection title="Categories">
+              {/* Product Ranges with Product Sub-list */}
+              <FilterSection title="Product Ranges">
                 <div className="filter-options category-filter-list">
                   {(showAllCategories ? categories : categories.slice(0, 10)).map(category => {
                     const categoryProducts = getProductsForCategory(category.id);
@@ -786,51 +1029,37 @@ const Products = () => {
                 <button className="btn-secondary" onClick={clearAllFilters}>Clear All Filters</button>
               </div>
             ) : (
-              <div className={`products-grid-container ${viewMode}`}>
+              <div ref={productsGridRef} className={`products-grid-container ${viewMode}`}>
                 {viewMode === 'grid' ? (
                   filteredProducts.map((product) => {
-                    const categoryName = product.category?.name || categories.find(c => c.id === product.categoryId)?.name || '';
+                    // Get category name(s) - support both old and new format
+                    let categoryName = '';
+                    if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+                      categoryName = product.categories.map(pc => pc.category?.name).filter(Boolean).join(', ');
+                    } else {
+                      categoryName = product.category?.name || categories.find(c => c.id === product.categoryId)?.name || '';
+                    }
                     return (
-                      <Link
-                        to={`/products/${product.slug || product.id}`}
+                      <ProductGridCard
                         key={product.id}
-                        className="product-grid-card"
-                      >
-                        <div className="product-grid-image">
-                          {(() => {
-                            const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
-                            const imageUrl = primaryImage?.imageUrl || product.image;
-                            if (imageUrl) {
-                              const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${BACKEND_URL}${imageUrl}`;
-                              return <img src={fullUrl} alt={product.name} />;
-                            }
-                            return renderProductSVG(product.id % 6 + 1);
-                          })()}
-                          {(product.isFeatured || product.featured) && <span className="product-featured-badge">Featured</span>}
-                          {product.isActive === false && <span className="product-stock-badge">Out of Stock</span>}
-                        </div>
-                        <div className="product-grid-content">
-                          <h3 className="product-grid-name">{product.name}</h3>
-                          {categoryName && <div className="product-grid-category">{categoryName}</div>}
-                          <p className="product-grid-desc">{product.description || product.desc}</p>
-                          {product.price && (
-                            <div className="product-grid-price">₹{product.price.toLocaleString()}</div>
-                          )}
-                          <span className="product-grid-link">
-                            View Details
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          </span>
-                        </div>
-                      </Link>
+                        product={product}
+                        categoryName={categoryName}
+                        renderProductSVG={renderProductSVG}
+                        BACKEND_URL={BACKEND_URL}
+                      />
                     );
                   })
                 ) : (
                   filteredProducts.map((product) => {
                     const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
                     const imageUrl = primaryImage?.imageUrl || product.image;
-                    const categoryName = product.category?.name || categories.find(c => c.id === product.categoryId)?.name || '';
+                    // Get category name(s) - support both old and new format
+                    let categoryName = '';
+                    if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+                      categoryName = product.categories.map(pc => pc.category?.name).filter(Boolean).join(', ');
+                    } else {
+                      categoryName = product.category?.name || categories.find(c => c.id === product.categoryId)?.name || '';
+                    }
 
                     // Extract feature text from feature objects
                     const features = (product.features || []).map(f =>
@@ -850,7 +1079,7 @@ const Products = () => {
                       >
                         <div className="product-list-image">
                           {imageUrl ? (
-                            <img src={imageUrl.startsWith('http') ? imageUrl : `${BACKEND_URL}${imageUrl}`} alt={product.name} />
+                            <img src={imageUrl.startsWith('http') ? imageUrl : `${BACKEND_URL}${imageUrl}`} alt={product.name} loading="lazy" />
                           ) : (
                             renderProductSVG(product.id % 6 + 1)
                           )}

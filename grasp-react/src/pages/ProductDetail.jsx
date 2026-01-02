@@ -38,12 +38,41 @@ const ProductDetail = () => {
   const specsRef = useRef(null);
 
   const product = getProductById(slug);
-  const category = product ? getCategoryById(product.categoryId) : null;
 
-  // Get related products from the same category
+  // Get categories - support both old single category and new multi-category
+  const productCategories = [];
+  if (product?.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+    // New format: use junction table categories
+    product.categories.forEach(pc => {
+      if (pc.category) {
+        productCategories.push(pc.category);
+      } else if (pc.categoryId) {
+        const cat = getCategoryById(pc.categoryId);
+        if (cat) productCategories.push(cat);
+      }
+    });
+  } else if (product?.categoryId) {
+    // Old format: single category
+    const cat = getCategoryById(product.categoryId);
+    if (cat) productCategories.push(cat);
+  }
+  // Use first category for breadcrumb and related products link
+  const firstCategory = productCategories[0] || null;
+
+  // Get related products from any of the product's categories
   const relatedProducts = product
     ? products
-        .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
+        .filter(p => {
+          if (p.id === product.id) return false;
+          // Check if product shares any category
+          if (p.categories && Array.isArray(p.categories)) {
+            return p.categories.some(pc =>
+              productCategories.some(cat => cat.id === pc.categoryId || cat.id === pc.category?.id)
+            );
+          }
+          // Fall back to old categoryId
+          return productCategories.some(cat => cat.id === p.categoryId);
+        })
         .slice(0, 3)
     : [];
 
@@ -157,9 +186,9 @@ const ProductDetail = () => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9 18l6-6-6-6" />
           </svg>
-          {category && (
+          {firstCategory && (
             <>
-              <Link to={`/products?category=${category.slug}`}>{category.name}</Link>
+              <Link to={`/products?category=${firstCategory.slug}`}>{firstCategory.name}</Link>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 18l6-6-6-6" />
               </svg>
@@ -209,7 +238,11 @@ const ProductDetail = () => {
           {/* Product Info */}
           <div className="product-info-enhanced">
             <div className="product-meta">
-              <span className="product-category-tag">{category?.name}</span>
+              {productCategories.map((cat, index) => (
+                <Link key={cat.id || index} to={`/products?category=${cat.slug}`} className="product-category-tag">
+                  {cat.name}
+                </Link>
+              ))}
               <div className={`stock-badge ${product.isActive !== false ? 'in-stock' : 'out-stock'}`}>
                 <span className="status-dot"></span>
                 {product.isActive !== false ? 'In Stock' : 'Out of Stock'}
@@ -297,61 +330,22 @@ const ProductDetail = () => {
         </div>
       </section>
 
-      {/* Specifications Section - Carousel Style */}
+      {/* Specifications Section - Clean Table Layout */}
       {product.dynamicSpecs?.length > 0 && (
         <section className="product-specifications-section" ref={specsRef}>
           <div className="product-specifications-wrapper">
-            <div className="specs-content">
-              <div className="specs-header">
-                <h2>{product.name} Specifications</h2>
-                <p>Technical specifications and dimensions</p>
-              </div>
+            <div className="specs-header">
+              <h2>Technical Specifications</h2>
+              <p>Detailed specifications for {product.name}</p>
+            </div>
 
-              <div className="specs-carousel">
-                <div className="specs-grid" key={specCarouselIndex}>
-                  {currentSpecs.map((spec, index) => (
-                    <div key={spec.id || index} className="spec-card">
-                      <div className="spec-card-label">
-                        {spec.specKey || `Spec ${specCarouselIndex * specsPerPage + index + 1}`}
-                      </div>
-                      <div className="spec-card-value">{spec.specValue}</div>
-                    </div>
-                  ))}
+            <div className="specs-table">
+              {product.dynamicSpecs.map((spec, index) => (
+                <div key={spec.id || index} className="spec-row">
+                  <div className="spec-name">{spec.specKey || `Specification ${index + 1}`}</div>
+                  <div className="spec-value">{spec.specValue}</div>
                 </div>
-
-                {totalSpecPages > 1 && (
-                  <div className="specs-carousel-controls">
-                    <button
-                      className="carousel-btn prev"
-                      onClick={prevSpecPage}
-                      aria-label="Previous specifications"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M15 18l-6-6 6-6" />
-                      </svg>
-                    </button>
-                    <div className="carousel-dots">
-                      {Array.from({ length: totalSpecPages }).map((_, i) => (
-                        <button
-                          key={i}
-                          className={`carousel-dot ${i === specCarouselIndex ? 'active' : ''}`}
-                          onClick={() => setSpecCarouselIndex(i)}
-                          aria-label={`Go to page ${i + 1}`}
-                        />
-                      ))}
-                    </div>
-                    <button
-                      className="carousel-btn next"
-                      onClick={nextSpecPage}
-                      aria-label="Next specifications"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
           </div>
         </section>
@@ -484,8 +478,8 @@ const ProductDetail = () => {
           <div className="related-products-wrapper">
             <div className="section-header">
               <h2>Related Products</h2>
-              <Link to={`/products?category=${category?.slug}`} className="view-all-link">
-                View All in {category?.name}
+              <Link to={`/products?category=${firstCategory?.slug}`} className="view-all-link">
+                View All in {firstCategory?.name}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>

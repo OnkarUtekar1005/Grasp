@@ -5,7 +5,16 @@ const path = require('path');
 
 // Common include for product queries
 const productInclude = {
-  category: true,
+  category: true, // Deprecated: kept for backward compatibility
+  categories: {
+    include: {
+      category: {
+        include: {
+          specs: { orderBy: { sortOrder: 'asc' } },
+        },
+      },
+    },
+  },
   variants: {
     orderBy: { sortOrder: 'asc' },
   },
@@ -32,8 +41,13 @@ async function getAll(req, res, next) {
     // Build where clause
     const where = { isActive: true };
 
+    // Filter by category (supports both old single category and new multi-category)
     if (req.query.category) {
-      where.category = { slug: req.query.category };
+      where.categories = {
+        some: {
+          category: { slug: req.query.category },
+        },
+      };
     }
     if (req.query.material) {
       where.specMaterial = { contains: req.query.material, mode: 'insensitive' };
@@ -113,7 +127,7 @@ async function search(req, res, next) {
         { name: { contains: q, mode: 'insensitive' } },
         { code: { contains: q, mode: 'insensitive' } },
         { description: { contains: q, mode: 'insensitive' } },
-        { category: { name: { contains: q, mode: 'insensitive' } } },
+        { categories: { some: { category: { name: { contains: q, mode: 'insensitive' } } } } },
       ],
     };
 
@@ -164,16 +178,27 @@ async function getByCategory(req, res, next) {
     const { slug } = req.params;
     const { page, limit, skip } = parsePagination(req.query);
 
-    // Check if category exists
+    // Check if category exists (include specs)
     const category = await prisma.category.findUnique({
       where: { slug },
+      include: {
+        specs: { orderBy: { sortOrder: 'asc' } },
+      },
     });
 
     if (!category) {
       return response.notFound(res, 'Category not found');
     }
 
-    const where = { categoryId: category.id, isActive: true };
+    // Query using the junction table
+    const where = {
+      isActive: true,
+      categories: {
+        some: {
+          categoryId: category.id,
+        },
+      },
+    };
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
@@ -201,7 +226,7 @@ async function create(req, res, next) {
     console.log('Body:', req.body);
     console.log('Files:', req.files);
 
-    let { name, description, category, code, price, priceType, inStock, featured, specs, features } = req.body;
+    let { name, description, category, categories, code, price, priceType, inStock, featured, specs, features } = req.body;
 
     // Parse specs/features if they're JSON strings
     if (typeof specs === 'string') {
@@ -220,14 +245,38 @@ async function create(req, res, next) {
         features = [];
       }
     }
+    // Parse categories if it's a JSON string
+    if (typeof categories === 'string') {
+      try {
+        categories = JSON.parse(categories);
+      } catch (e) {
+        console.warn('Failed to parse categories JSON:', e.message);
+        categories = [];
+      }
+    }
 
-    // Find category by slug
-    const categoryRecord = await prisma.category.findUnique({
-      where: { slug: category },
-    });
+    // Handle both old single category and new multi-category format
+    let categoryRecords = [];
 
-    if (!categoryRecord) {
-      return response.badRequest(res, 'Category not found');
+    if (categories && Array.isArray(categories) && categories.length > 0) {
+      // New format: array of category slugs
+      categoryRecords = await prisma.category.findMany({
+        where: { slug: { in: categories } },
+      });
+      if (categoryRecords.length === 0) {
+        return response.badRequest(res, 'No valid categories found');
+      }
+    } else if (category) {
+      // Old format: single category slug (backward compatibility)
+      const categoryRecord = await prisma.category.findUnique({
+        where: { slug: category },
+      });
+      if (!categoryRecord) {
+        return response.badRequest(res, 'Category not found');
+      }
+      categoryRecords = [categoryRecord];
+    } else {
+      return response.badRequest(res, 'At least one category is required');
     }
 
     // Generate slug
@@ -237,19 +286,22 @@ async function create(req, res, next) {
       return !!existing;
     });
 
-    // Parse price
-    const parsedPrice = price === '' || price === null ? null : parseFloat(price);
-
-    // Create product
+    // Create product with categories via junction table
     const product = await prisma.product.create({
       data: {
-        categoryId: categoryRecord.id,
+        categoryId: categoryRecords[0]?.id || null, // Keep for backward compatibility (primary category)
         name,
         slug,
         code: code || null,
         description: description || null,
         isFeatured: featured === 'true' || featured === true,
         isActive: true,
+        // Create category associations via junction table
+        categories: {
+          create: categoryRecords.map((cat) => ({
+            categoryId: cat.id,
+          })),
+        },
         // Store specs as dynamicSpecs
         dynamicSpecs: Array.isArray(specs) && specs.length > 0
           ? {
@@ -338,7 +390,7 @@ async function update(req, res, next) {
     console.log('Body:', req.body);
     console.log('Files:', req.files);
 
-    let { name, description, category, code, price, priceType, inStock, featured, specs, features, existingImages, existingDocuments } = req.body;
+    let { name, description, category, categories, code, price, priceType, inStock, featured, specs, features, existingImages, existingDocuments } = req.body;
 
     // Parse JSON strings
     if (typeof specs === 'string') {
@@ -355,6 +407,14 @@ async function update(req, res, next) {
       } catch (e) {
         console.warn('Failed to parse features JSON:', e.message);
         features = undefined;
+      }
+    }
+    if (typeof categories === 'string') {
+      try {
+        categories = JSON.parse(categories);
+      } catch (e) {
+        console.warn('Failed to parse categories JSON:', e.message);
+        categories = undefined;
       }
     }
     if (typeof existingImages === 'string') {
@@ -391,13 +451,25 @@ async function update(req, res, next) {
     if (code !== undefined) updateData.code = code || null;
     if (description !== undefined) updateData.description = description || null;
 
-    // Handle category change
-    if (category) {
+    // Handle category change (supports both old single and new multi-category)
+    let categoryRecords = [];
+    if (categories && Array.isArray(categories) && categories.length > 0) {
+      // New format: array of category slugs
+      categoryRecords = await prisma.category.findMany({
+        where: { slug: { in: categories } },
+      });
+      // Update primary categoryId for backward compatibility
+      if (categoryRecords.length > 0) {
+        updateData.categoryId = categoryRecords[0].id;
+      }
+    } else if (category) {
+      // Old format: single category slug
       const categoryRecord = await prisma.category.findUnique({
         where: { slug: category },
       });
       if (categoryRecord) {
         updateData.categoryId = categoryRecord.id;
+        categoryRecords = [categoryRecord];
       }
     }
 
@@ -443,6 +515,19 @@ async function update(req, res, next) {
           })),
         });
       }
+    }
+
+    // Update categories if provided (via junction table)
+    if (categoryRecords.length > 0) {
+      // Delete existing category associations
+      await prisma.productCategory.deleteMany({ where: { productId: id } });
+      // Create new associations
+      await prisma.productCategory.createMany({
+        data: categoryRecords.map((cat) => ({
+          productId: id,
+          categoryId: cat.id,
+        })),
+      });
     }
 
     // Handle image removal - delete images not in existingImages list

@@ -29,7 +29,7 @@ const CategoriesList = () => {
       await deleteCategory(deleteModal.category.id);
       setDeleteModal({ show: false, category: null });
     } catch (error) {
-      alert('Failed to delete category. Please try again.');
+      alert('Failed to delete product range. Please try again.');
     }
   };
 
@@ -49,7 +49,7 @@ const CategoriesList = () => {
             </svg>
             <input
               type="text"
-              placeholder="Search categories..."
+              placeholder="Search product ranges..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -59,7 +59,7 @@ const CategoriesList = () => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 4v16m8-8H4" />
           </svg>
-          Add Category
+          Add Product Range
         </Link>
       </div>
 
@@ -134,8 +134,8 @@ const CategoriesList = () => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
-          <p>No categories found matching your search.</p>
-          <Link to="/admin/categories/new" className="btn-secondary">Create Your First Category</Link>
+          <p>No product ranges found matching your search.</p>
+          <Link to="/admin/categories/new" className="btn-secondary">Create Your First Product Range</Link>
         </div>
       )}
 
@@ -148,7 +148,7 @@ const CategoriesList = () => {
                 <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h3>Delete Category</h3>
+            <h3>Delete Product Range</h3>
             <p className="delete-modal-category">"{deleteModal.category?.name}"</p>
             {getProductCount(deleteModal.category?.id) > 0 && (
               <div className="delete-modal-warning">
@@ -157,20 +157,20 @@ const CategoriesList = () => {
                   <path d="M12 8v4m0 4h.01" />
                 </svg>
                 <span>
-                  This category has <strong>{getProductCount(deleteModal.category?.id)} product(s)</strong> linked to it.
+                  This product range has <strong>{getProductCount(deleteModal.category?.id)} product(s)</strong> linked to it.
                   These products will be unlinked and you'll need to reassign them manually.
                 </span>
               </div>
             )}
             <p className="delete-modal-text">
-              This action cannot be undone. The category and its image will be permanently deleted.
+              This action cannot be undone. The product range and its image will be permanently deleted.
             </p>
             <div className="delete-modal-actions">
               <button className="btn-secondary" onClick={handleDeleteCancel}>
                 Cancel
               </button>
               <button className="btn-danger" onClick={handleDeleteConfirm}>
-                Delete Category
+                Delete Product Range
               </button>
             </div>
           </div>

@@ -102,12 +102,12 @@ const ProductsList = () => {
         {showFilters && (
           <div className="list-filters-expanded">
             <div className="filter-group">
-              <label>Category</label>
+              <label>Product Range</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
-                <option value="all">All Categories</option>
+                <option value="all">All Product Ranges</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
@@ -168,7 +168,7 @@ const ProductsList = () => {
             <tr>
               <th>Product</th>
               <th>Code</th>
-              <th>Category</th>
+              <th>Product Range</th>
               <th>Price</th>
               <th>Status</th>
               <th>Actions</th>
@@ -210,6 +210,12 @@ const ProductsList = () => {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                           <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      </Link>
+                      <Link to={`/admin/products/new?duplicate=${product.slug}`} className="action-btn duplicate" title="Duplicate">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                         </svg>
                       </Link>
                       <Link to={`/admin/products/edit/${product.slug}`} className="action-btn edit" title="Edit">
@@ -274,6 +280,13 @@ const ProductsList = () => {
                       <circle cx="12" cy="12" r="3" />
                     </svg>
                     View
+                  </Link>
+                  <Link to={`/admin/products/new?duplicate=${product.slug}`} className="action-btn duplicate">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                    </svg>
+                    Duplicate
                   </Link>
                   <Link to={`/admin/products/edit/${product.slug}`} className="action-btn edit">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

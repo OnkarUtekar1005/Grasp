@@ -43,12 +43,20 @@ function validate(schema) {
     if (schema.params) {
       const result = schema.params.safeParse(req.params);
       if (!result.success) {
+        const errorList = result.error?.errors || [];
         errors.push(
-          ...result.error.errors.map((e) => ({
+          ...errorList.map((e) => ({
             field: `params.${e.path.join('.')}`,
             message: e.message,
           }))
         );
+        // If no detailed errors, add a generic one
+        if (errorList.length === 0) {
+          errors.push({
+            field: 'params',
+            message: 'Invalid request parameters',
+          });
+        }
       } else {
         req.params = result.data;
       }

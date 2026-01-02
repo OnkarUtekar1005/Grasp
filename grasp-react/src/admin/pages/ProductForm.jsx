@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { productAPI, categoryAPI, BACKEND_URL } from '../../services';
 import { useProducts } from '../../contexts';
 
@@ -14,7 +14,10 @@ const DOCUMENT_TYPES = [
 const ProductForm = () => {
   const navigate = useNavigate();
   const { id: slugOrId } = useParams();
+  const [searchParams] = useSearchParams();
+  const duplicateSlug = searchParams.get('duplicate');
   const isEditing = Boolean(slugOrId);
+  const isDuplicating = Boolean(duplicateSlug) && !isEditing;
   const fileInputRef = useRef(null);
   const docInputRef = useRef(null);
   const { refreshData } = useProducts();
@@ -29,7 +32,7 @@ const ProductForm = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: '',
+    categories: [], // Changed from single category to array
     code: '',
     price: '',
     priceType: 'fixed', // 'fixed' or 'quote'
@@ -50,7 +53,7 @@ const ProductForm = () => {
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [dragDocActive, setDragDocActive] = useState(false);
 
-  // Fetch categories and product data (if editing)
+  // Fetch categories and product data (if editing or duplicating)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -58,11 +61,18 @@ const ProductForm = () => {
         const categoriesData = await categoryAPI.getAll();
         setCategories(categoriesData.data || []);
 
-        if (isEditing) {
-          const response = await productAPI.getBySlug(slugOrId);
+        // Fetch product data if editing OR duplicating
+        const slugToFetch = isEditing ? slugOrId : duplicateSlug;
+
+        if (slugToFetch) {
+          const response = await productAPI.getBySlug(slugToFetch);
           const product = response.data || response;
-          // Store the UUID for update calls
-          setProductId(product.id);
+
+          // Only store product ID if editing (not when duplicating)
+          if (isEditing) {
+            setProductId(product.id);
+          }
+
           // Extract values from spec/feature objects if needed
           const specs = product.dynamicSpecs?.length
             ? product.dynamicSpecs.map(s => s.specValue || s.value || s)
@@ -72,11 +82,23 @@ const ProductForm = () => {
           const features = product.features?.length
             ? product.features.map(f => f.featureText || f.featureValue || f.value || f)
             : [''];
+          // Extract categories from junction table or fall back to single category
+          let productCategories = [];
+          if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+            // New format: array from junction table
+            productCategories = product.categories.map(pc => pc.category?.slug || pc.categoryId).filter(Boolean);
+          } else if (product.category?.slug) {
+            // Old format: single category
+            productCategories = [product.category.slug];
+          }
+
           setFormData({
-            name: product.name || '',
+            // Add "(Copy)" suffix when duplicating
+            name: isDuplicating ? `${product.name} (Copy)` : (product.name || ''),
             description: product.description || '',
-            category: product.category?.slug || '',
-            code: product.code || '',
+            categories: productCategories,
+            // Clear code when duplicating (user should enter new unique code)
+            code: isDuplicating ? '' : (product.code || ''),
             price: product.price || '',
             priceType: product.price ? 'fixed' : 'quote',
             inStock: product.isActive !== false,
@@ -84,35 +106,44 @@ const ProductForm = () => {
             specs,
             features,
           });
-          if (product.images?.length) {
-            // Store full image objects for existing images
-            setExistingImages(product.images.map(img => ({
-              id: img.id,
-              url: `${BACKEND_URL}${img.imageUrl}`,
-              imageUrl: img.imageUrl,
-            })));
-          }
-          if (product.documents?.length) {
-            setExistingDocuments(product.documents.map(doc => ({
-              id: doc.id,
-              name: doc.name,
-              documentUrl: doc.documentUrl,
-              documentType: doc.documentType,
-              fileSizeBytes: doc.fileSizeBytes,
-            })));
+
+          // Only load existing images/documents when editing (not duplicating)
+          if (isEditing) {
+            if (product.images?.length) {
+              // Store full image objects for existing images
+              setExistingImages(product.images.map(img => ({
+                id: img.id,
+                url: `${BACKEND_URL}${img.imageUrl}`,
+                imageUrl: img.imageUrl,
+              })));
+            }
+            if (product.documents?.length) {
+              setExistingDocuments(product.documents.map(doc => ({
+                id: doc.id,
+                name: doc.name,
+                documentUrl: doc.documentUrl,
+                documentType: doc.documentType,
+                fileSizeBytes: doc.fileSizeBytes,
+              })));
+            }
           }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
-        alert('Product not found');
-        navigate('/admin/products');
+        if (isEditing) {
+          alert('Product not found');
+          navigate('/admin/products');
+        } else if (isDuplicating) {
+          alert('Source product not found for duplication');
+          navigate('/admin/products');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [slugOrId, isEditing, navigate]);
+  }, [slugOrId, duplicateSlug, isEditing, isDuplicating, navigate]);
 
   // Handle input change
   const handleChange = (e) => {
@@ -296,6 +327,50 @@ const ProductForm = () => {
     setExistingDocuments(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Category dropdown state
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState('');
+  const categoryDropdownRef = useRef(null);
+
+  // Handle category toggle (multi-select)
+  const handleCategoryToggle = (slug) => {
+    setFormData(prev => {
+      const newCategories = prev.categories.includes(slug)
+        ? prev.categories.filter(c => c !== slug)
+        : [...prev.categories, slug];
+      return { ...prev, categories: newCategories };
+    });
+    if (errors.categories) {
+      setErrors(prev => ({ ...prev, categories: '' }));
+    }
+  };
+
+  // Remove category tag
+  const removeCategory = (slug, e) => {
+    e.stopPropagation();
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.filter(c => c !== slug)
+    }));
+  };
+
+  // Filter categories based on search
+  const filteredCategories = categories.filter(cat =>
+    cat.name.toLowerCase().includes(categorySearch.toLowerCase())
+  );
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
+        setCategoryDropdownOpen(false);
+        setCategorySearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Validate form
   const validateForm = () => {
     const newErrors = {};
@@ -308,8 +383,8 @@ const ProductForm = () => {
       newErrors.description = 'Description is required';
     }
 
-    if (!formData.category) {
-      newErrors.category = 'Please select a category';
+    if (!formData.categories || formData.categories.length === 0) {
+      newErrors.categories = 'Please select at least one product range';
     }
 
     if (formData.priceType === 'fixed' && !formData.price) {
@@ -337,7 +412,7 @@ const ProductForm = () => {
       // Add form fields
       submitData.append('name', formData.name);
       submitData.append('description', formData.description);
-      submitData.append('category', formData.category);
+      submitData.append('categories', JSON.stringify(formData.categories)); // Send as JSON array
       submitData.append('code', formData.code);
       submitData.append('price', formData.priceType === 'quote' ? '' : formData.price);
       submitData.append('priceType', formData.priceType);
@@ -406,7 +481,7 @@ const ProductForm = () => {
     <div className="product-form-page">
       <div className="product-form-header">
         <div>
-          <h1>{isEditing ? 'Edit Product' : 'Add New Product'}</h1>
+          <h1>{isEditing ? 'Edit Product' : isDuplicating ? 'Duplicate Product' : 'Add New Product'}</h1>
           <p>Fill in the details below to {isEditing ? 'update the' : 'create a new'} product.</p>
         </div>
         <div className="product-form-actions">
@@ -789,22 +864,66 @@ const ProductForm = () => {
               <h3>Organization</h3>
 
               <div className="form-group">
-                <label htmlFor="category">Category *</label>
-                <select
-                  id="category"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className={errors.category ? 'error' : ''}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.slug} value={cat.slug}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.category && <span className="error-message">{errors.category}</span>}
+                <label>Product Ranges *</label>
+                <div className="category-multiselect" ref={categoryDropdownRef}>
+                  <div
+                    className={`category-multiselect-input ${categoryDropdownOpen ? 'active' : ''} ${errors.categories ? 'error' : ''}`}
+                    onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                  >
+                    {formData.categories.length > 0 ? (
+                      <div className="category-multiselect-tags">
+                        {formData.categories.map(slug => {
+                          const cat = categories.find(c => c.slug === slug);
+                          return cat ? (
+                            <span key={slug} className="category-tag">
+                              {cat.name}
+                              <button type="button" onClick={(e) => removeCategory(slug, e)}>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    ) : (
+                      <span className="category-multiselect-placeholder">Select product ranges...</span>
+                    )}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </div>
+                  {categoryDropdownOpen && (
+                    <div className="category-multiselect-dropdown">
+                      <div className="category-multiselect-search">
+                        <input
+                          type="text"
+                          placeholder="Search product ranges..."
+                          value={categorySearch}
+                          onChange={(e) => setCategorySearch(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      <div className="category-multiselect-options">
+                        {filteredCategories.length > 0 ? (
+                          filteredCategories.map((cat) => (
+                            <div
+                              key={cat.slug}
+                              className={`category-multiselect-option ${formData.categories.includes(cat.slug) ? 'selected' : ''}`}
+                              onClick={() => handleCategoryToggle(cat.slug)}
+                            >
+                              <span className="option-checkmark"></span>
+                              <span>{cat.name}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="category-multiselect-empty">No product ranges found</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {errors.categories && <span className="error-message">{errors.categories}</span>}
               </div>
 
               <div className="form-group">
@@ -818,6 +937,7 @@ const ProductForm = () => {
                       checked={formData.priceType === 'fixed'}
                       onChange={handleChange}
                     />
+                    <span className="radio-mark"></span>
                     <span>Fixed Price</span>
                   </label>
                   <label className="radio-label">
@@ -828,6 +948,7 @@ const ProductForm = () => {
                       checked={formData.priceType === 'quote'}
                       onChange={handleChange}
                     />
+                    <span className="radio-mark"></span>
                     <span>Request Quote</span>
                   </label>
                 </div>
@@ -864,7 +985,7 @@ const ProductForm = () => {
                     checked={formData.inStock}
                     onChange={handleChange}
                   />
-                  <span className="checkbox-custom" />
+                  <span className="checkmark"></span>
                   <span>In Stock</span>
                 </label>
               </div>
@@ -877,7 +998,7 @@ const ProductForm = () => {
                     checked={formData.featured}
                     onChange={handleChange}
                   />
-                  <span className="checkbox-custom" />
+                  <span className="checkmark"></span>
                   <span>Featured Product</span>
                 </label>
                 <small>Featured products appear on the homepage</small>

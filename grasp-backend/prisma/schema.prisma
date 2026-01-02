@@ -57,12 +57,29 @@ model Category {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  specs    CategorySpec[]
-  products Product[]
+  specs             CategorySpec[]
+  products          Product[]           // Deprecated: kept for backward compatibility
+  productCategories ProductCategory[]   // New: many-to-many relation
 
   @@index([isFeatured])
   @@index([sortOrder])
   @@map("categories")
+}
+
+// Junction table for many-to-many Product <-> Category relationship
+model ProductCategory {
+  id         String   @id @default(uuid())
+  productId  String   @map("product_id")
+  categoryId String   @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
+  @@map("product_categories")
 }
 
 model CategorySpec {
@@ -106,13 +123,15 @@ model Product {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  category     Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  variants     ProductVariant[]
-  images       ProductImage[]
-  documents    ProductDocument[]
-  features     ProductFeature[]
-  dynamicSpecs ProductDynamicSpec[]
-  quoteItems   QuoteRequestItem[]
+  category      Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull) // Deprecated: kept for backward compatibility
+  categories    ProductCategory[]    // New: many-to-many relation
+  variants      ProductVariant[]
+  images        ProductImage[]
+  documents     ProductDocument[]
+  features      ProductFeature[]
+  dynamicSpecs  ProductDynamicSpec[]
+  quoteItems    QuoteRequestItem[]
+  galleryImages GalleryImageProduct[] // Gallery images linked to this product
 
   @@index([categoryId])
   @@index([isFeatured])
@@ -293,6 +312,44 @@ model Inquiry {
   @@index([email])
   @@index([createdAt(sort: Desc)])
   @@map("inquiries")
+}
+
+// ==================== GALLERY ====================
+
+model GalleryImage {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  imageUrl    String   @map("image_url")
+  altText     String?  @map("alt_text")
+  isFeatured  Boolean  @default(false) @map("is_featured")
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  products GalleryImageProduct[]
+
+  @@index([isFeatured])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("gallery_images")
+}
+
+// Junction table for Gallery Image <-> Product relationship
+model GalleryImageProduct {
+  id             String   @id @default(uuid())
+  galleryImageId String   @map("gallery_image_id")
+  productId      String   @map("product_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  galleryImage GalleryImage @relation(fields: [galleryImageId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([galleryImageId, productId])
+  @@index([galleryImageId])
+  @@index([productId])
+  @@map("gallery_image_products")
 }
 
 // ==================== SETTINGS ====================

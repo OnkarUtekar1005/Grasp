@@ -44,9 +44,16 @@ export const ProductProvider = ({ children }) => {
     return products.find(product => product.id === id || product.slug === id);
   };
 
-  // Get products by category
+  // Get products by category (supports both old categoryId and new categories array)
   const getProductsByCategory = (categoryId) => {
-    return products.filter(product => product.categoryId === categoryId);
+    return products.filter(product => {
+      // Check new junction table format first
+      if (product.categories && Array.isArray(product.categories)) {
+        return product.categories.some(pc => pc.categoryId === categoryId || pc.category?.id === categoryId);
+      }
+      // Fall back to old direct categoryId
+      return product.categoryId === categoryId;
+    });
   };
 
   // Get category by ID

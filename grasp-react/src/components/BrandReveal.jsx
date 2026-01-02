@@ -1,4 +1,4 @@
-import logo from '../assets/images/logo.jpg';
+import logo from '../assets/images/logo.png';
 
 const BrandReveal = ({ isHidden, brandScale, brandOpacity }) => {
   return (

@@ -15,8 +15,8 @@ const CategoryProducts = () => {
       <>
         <Navbar isVisible={true} />
         <div className="product-not-found">
-          <h1>Category Not Found</h1>
-          <p>The category you're looking for doesn't exist.</p>
+          <h1>Product Range Not Found</h1>
+          <p>The product range you're looking for doesn't exist.</p>
           <Link to="/products" className="btn-primary">Back to Products</Link>
         </div>
         <Footer />
@@ -47,7 +47,7 @@ const CategoryProducts = () => {
         <div className="category-products-inner">
           {/* Sidebar */}
           <aside className="category-sidebar">
-            <h3>Categories</h3>
+            <h3>Product Ranges</h3>
             <nav className="category-nav">
               {allCategories.map(cat => (
                 <Link
@@ -56,7 +56,7 @@ const CategoryProducts = () => {
                   className={`category-nav-item ${cat.id === category.id ? 'active' : ''}`}
                 >
                   {cat.name}
-                  <span className="count">{getProductsByCategory(cat.id).length}</span>
+                  <span className="count">{cat.productCount ?? getProductsByCategory(cat.id).length}</span>
                 </Link>
               ))}
             </nav>
@@ -93,7 +93,7 @@ const CategoryProducts = () => {
               </div>
             ) : (
               <div className="no-products">
-                <p>No products found in this category.</p>
+                <p>No products found in this product range.</p>
               </div>
             )}
           </div>

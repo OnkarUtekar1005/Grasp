@@ -31,7 +31,8 @@ const createProductSchema = {
   body: z.object({
     name: z.string().min(1, 'Name is required').max(200),
     description: z.string().optional(),
-    category: z.string().min(1, 'Category is required'), // category slug
+    category: z.string().optional(), // Deprecated: single category slug (backward compat)
+    categories: arrayFromFormData, // New: array of category slugs
     code: z.string().max(50).optional(),
     price: z.union([
       z.number(),
@@ -43,7 +44,10 @@ const createProductSchema = {
     specs: arrayFromFormData,
     features: arrayFromFormData,
     existingImages: z.string().optional(), // JSON string of existing images
-  }),
+  }).refine(
+    data => data.category || (data.categories && data.categories.length > 0),
+    { message: 'At least one category is required', path: ['categories'] }
+  ),
 };
 
 const updateProductSchema = {
@@ -53,7 +57,8 @@ const updateProductSchema = {
   body: z.object({
     name: z.string().min(1).max(200).optional(),
     description: z.string().optional().nullable(),
-    category: z.string().optional(), // category slug
+    category: z.string().optional(), // Deprecated: single category slug (backward compat)
+    categories: arrayFromFormData, // New: array of category slugs
     code: z.string().max(50).optional().nullable(),
     price: z.union([
       z.number(),

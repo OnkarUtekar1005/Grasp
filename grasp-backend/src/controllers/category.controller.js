@@ -14,13 +14,22 @@ async function getAll(req, res, next) {
           orderBy: { sortOrder: 'asc' },
         },
         _count: {
-          select: { products: true },
+          select: {
+            products: true,           // Deprecated: old direct relation
+            productCategories: true,  // New: junction table count
+          },
         },
       },
       orderBy: { sortOrder: 'asc' },
     });
 
-    response.success(res, categories);
+    // Map to provide consistent productCount using junction table
+    const mappedCategories = categories.map(cat => ({
+      ...cat,
+      productCount: cat._count.productCategories || cat._count.products || 0,
+    }));
+
+    response.success(res, mappedCategories);
   } catch (error) {
     next(error);
   }
@@ -40,7 +49,10 @@ async function getBySlug(req, res, next) {
           orderBy: { sortOrder: 'asc' },
         },
         _count: {
-          select: { products: true },
+          select: {
+            products: true,           // Deprecated
+            productCategories: true,  // New: junction table
+          },
         },
       },
     });
@@ -49,7 +61,13 @@ async function getBySlug(req, res, next) {
       return response.notFound(res, 'Category not found');
     }
 
-    response.success(res, category);
+    // Add consistent productCount
+    const result = {
+      ...category,
+      productCount: category._count.productCategories || category._count.products || 0,
+    };
+
+    response.success(res, result);
   } catch (error) {
     next(error);
   }
@@ -257,6 +275,7 @@ async function update(req, res, next) {
 /**
  * Delete a category (admin)
  * Products referencing this category will have their categoryId set to null
+ * Junction table entries will be cascade deleted automatically
  */
 async function remove(req, res, next) {
   try {
@@ -274,14 +293,19 @@ async function remove(req, res, next) {
       return response.notFound(res, 'Category not found');
     }
 
-    // Count products affected
-    const productCount = await prisma.product.count({
+    // Count products affected (via junction table)
+    const junctionCount = await prisma.productCategory.count({
       where: { categoryId: id },
     });
-    console.log('Products to update:', productCount);
+    // Also count old direct relation
+    const directCount = await prisma.product.count({
+      where: { categoryId: id },
+    });
+    console.log('Products in junction table:', junctionCount);
+    console.log('Products with direct categoryId:', directCount);
 
-    // Step 1: Update all products to remove category reference
-    console.log('Step 1: Removing category reference from products...');
+    // Step 1: Update all products to remove direct category reference (backward compat)
+    console.log('Step 1: Removing direct category reference from products...');
     const updateResult = await prisma.product.updateMany({
       where: { categoryId: id },
       data: { categoryId: null },
@@ -295,7 +319,9 @@ async function remove(req, res, next) {
     });
     console.log('Specs deleted:', specsResult.count);
 
-    // Step 3: Delete the category
+    // Note: ProductCategory entries will be cascade deleted when category is deleted
+
+    // Step 3: Delete the category (cascades to ProductCategory)
     console.log('Step 3: Deleting category...');
     await prisma.category.delete({
       where: { id },
@@ -315,7 +341,7 @@ async function remove(req, res, next) {
     console.log('=== DELETE COMPLETE ===');
     response.success(res, {
       message: 'Category deleted successfully',
-      productsAffected: productCount
+      productsAffected: junctionCount || directCount
     });
   } catch (error) {
     console.error('Delete category error:', error);

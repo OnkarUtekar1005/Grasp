@@ -15,6 +15,8 @@ const storage = multer.diskStorage({
       subDir = file.mimetype.startsWith('image/') ? 'products/images' : 'products/documents';
     } else if (req.baseUrl.includes('categories')) {
       subDir = 'categories';
+    } else if (req.baseUrl.includes('gallery')) {
+      subDir = 'gallery';
     }
 
     cb(null, path.join(uploadDir, subDir));
