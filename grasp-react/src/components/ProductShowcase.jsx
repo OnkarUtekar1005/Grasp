@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { productAPI, BACKEND_URL } from '../services';
 
@@ -16,8 +16,10 @@ const fallbackItems = [
 const ProductShowcase = ({ isVisible }) => {
   const [showcaseItems, setShowcaseItems] = useState(fallbackItems);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
   const carouselRef = useRef(null);
   const autoPlayRef = useRef(null);
+  const scrollTimeoutRef = useRef(null);
 
   useEffect(() => {
     const fetchFeaturedProducts = async () => {
@@ -70,22 +72,57 @@ const ProductShowcase = ({ isVisible }) => {
     setCurrentIndex((prev) => (prev - 1 + itemCount) % itemCount);
   };
 
-  const startAutoPlay = () => {
+  const startAutoPlay = useCallback(() => {
+    if (autoPlayRef.current) clearInterval(autoPlayRef.current);
     autoPlayRef.current = setInterval(nextSlide, 3500);
-  };
+  }, []);
 
-  const stopAutoPlay = () => {
+  const stopAutoPlay = useCallback(() => {
     if (autoPlayRef.current) {
       clearInterval(autoPlayRef.current);
+      autoPlayRef.current = null;
     }
-  };
+  }, []);
 
+  // Pause carousel during scroll, resume after scroll stops
   useEffect(() => {
-    if (itemCount > 0) {
+    const handleScroll = () => {
+      setIsScrolling(true);
+      stopAutoPlay();
+
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      // Resume autoplay 500ms after scroll stops
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false);
+        if (isVisible) {
+          startAutoPlay();
+        }
+      }, 500);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [isVisible, startAutoPlay, stopAutoPlay]);
+
+  // Start autoplay when visible and not scrolling
+  useEffect(() => {
+    if (itemCount > 0 && isVisible && !isScrolling) {
       startAutoPlay();
-      return () => stopAutoPlay();
+    } else {
+      stopAutoPlay();
     }
-  }, [itemCount]);
+    return () => stopAutoPlay();
+  }, [itemCount, isVisible, isScrolling, startAutoPlay, stopAutoPlay]);
 
   if (itemCount === 0) {
     return null;

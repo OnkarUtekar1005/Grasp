@@ -4,12 +4,13 @@ import Lenis from 'lenis';
 
 const SmoothScroll = ({ children }) => {
   const lenisRef = useRef(null);
+  const rafIdRef = useRef(null);
   const location = useLocation();
 
   useEffect(() => {
-    // Initialize Lenis
+    // Initialize Lenis with optimized settings
     const lenis = new Lenis({
-      duration: 1.2,
+      duration: 1.0, // Slightly faster for better responsiveness
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: 'vertical',
       gestureOrientation: 'vertical',
@@ -17,20 +18,24 @@ const SmoothScroll = ({ children }) => {
       wheelMultiplier: 1,
       touchMultiplier: 2,
       infinite: false,
+      autoRaf: false, // Disable auto RAF, we'll manage it
     });
 
     lenisRef.current = lenis;
 
-    // RAF loop
+    // Optimized RAF loop - only runs when needed
     function raf(time) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      rafIdRef.current = requestAnimationFrame(raf);
     }
 
-    requestAnimationFrame(raf);
+    rafIdRef.current = requestAnimationFrame(raf);
 
     // Cleanup
     return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
       lenis.destroy();
       lenisRef.current = null;
     };

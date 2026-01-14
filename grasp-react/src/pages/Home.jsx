@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Navbar,
   BrandReveal,
@@ -20,8 +20,16 @@ const Home = () => {
     navVisible: false
   });
 
-  const handleScroll = useCallback(() => {
+  const rafRef = useRef(null);
+  const lastScrollY = useRef(0);
+
+  const calculateScrollState = useCallback(() => {
     const scrollY = window.scrollY;
+
+    // Skip if scroll position hasn't changed significantly (2px threshold)
+    if (Math.abs(scrollY - lastScrollY.current) < 2) return;
+    lastScrollY.current = scrollY;
+
     const windowHeight = window.innerHeight;
     const fadeStart = windowHeight * 0.3;
     const fadeEnd = windowHeight * 0.7;
@@ -59,11 +67,23 @@ const Home = () => {
     });
   }, []);
 
+  const handleScroll = useCallback(() => {
+    // Throttle using requestAnimationFrame
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      calculateScrollState();
+      rafRef.current = null;
+    });
+  }, [calculateScrollState]);
+
   useEffect(() => {
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
+    calculateScrollState();
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [handleScroll, calculateScrollState]);
 
   return (
     <>

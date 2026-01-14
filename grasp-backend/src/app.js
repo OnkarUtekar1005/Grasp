@@ -13,21 +13,21 @@ const app = express();
 // Trust proxy (for accurate IP addresses behind reverse proxy)
 app.set('trust proxy', 1);
 
-// Security headers - configure to allow cross-origin images
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-  crossOriginEmbedderPolicy: false,
-}));
-
-// CORS configuration
+// CORS configuration - MUST be before Helmet
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   maxAge: 86400, // 24 hours
 };
 app.use(cors(corsOptions));
+
+// Security headers - configure to allow cross-origin images
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+}));
 
 // Compression
 app.use(compression());
