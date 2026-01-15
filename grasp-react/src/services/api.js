@@ -4,8 +4,8 @@
  * This service handles all API calls to the Grasp Electric backend.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 /**
  * Helper function for API calls
