@@ -854,6 +854,214 @@ body { font-family: var(--font-body); background: var(--bg-primary); color: var(
 }
 
 /* ============================================
+   MOBILE PERFORMANCE OPTIMIZATIONS
+   Disable heavy animations on mobile devices
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Disable GPU-intensive animations on mobile */
+  .brand-orb,
+  .floating-orb,
+  .floating-orb-1,
+  .floating-orb-2,
+  .floating-orb-3 {
+    animation: none !important;
+    opacity: 0.3;
+    filter: blur(40px);
+    width: 300px;
+    height: 300px;
+  }
+
+  /* Hide network SVG completely on mobile - too complex */
+  .network-svg {
+    display: none !important;
+  }
+
+  /* Simplify grid animation */
+  .grid-lines {
+    animation: none !important;
+    opacity: 0.3;
+  }
+
+  /* Disable grid pulse animation */
+  .grid-system .grid-lines {
+    animation: none !important;
+  }
+
+  /* Simplify brand reveal */
+  .brand-reveal {
+    background: var(--bg-primary);
+  }
+
+  .brand-grid {
+    opacity: 0.3;
+  }
+
+  .brand-tagline {
+    animation: none;
+    opacity: 1;
+  }
+
+  .scroll-hint {
+    animation: none;
+    opacity: 1;
+  }
+
+  .scroll-hint-line {
+    animation: none !important;
+    opacity: 0.6;
+  }
+
+  /* Simplified carousel for mobile - no 3D transforms */
+  .showcase-hero-carousel {
+    perspective: none;
+    height: auto;
+    min-height: 220px;
+    padding: 10px 0;
+  }
+
+  .showcase-hero-card {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    height: 200px;
+    margin: 0 auto;
+    transform: none !important;
+    filter: none !important;
+    border-radius: 12px;
+  }
+
+  .showcase-hero-card.center {
+    position: relative;
+    transform: none !important;
+    opacity: 1;
+    z-index: 10;
+  }
+
+  /* Hide side cards on mobile - show only active */
+  .showcase-hero-card.left,
+  .showcase-hero-card.right,
+  .showcase-hero-card.far-left,
+  .showcase-hero-card.far-right {
+    display: none;
+  }
+
+  /* Mobile-friendly navigation buttons */
+  .showcase-hero-nav {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .showcase-hero-nav.prev {
+    left: 8px;
+  }
+
+  .showcase-hero-nav.next {
+    right: 8px;
+  }
+
+  /* Larger touch targets for dots */
+  .showcase-hero-dots {
+    gap: 12px;
+    padding: 16px 0;
+  }
+
+  .showcase-hero-dot {
+    width: 10px;
+    height: 10px;
+    padding: 8px;
+    box-sizing: content-box;
+    background-clip: content-box;
+  }
+
+  /* Optimize hero section for mobile */
+  .hero {
+    min-height: 100vh;
+  }
+
+  .hero-sticky {
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .hero-main {
+    padding: 100px 16px 40px;
+  }
+
+  .hero-showcase-title {
+    margin-bottom: 16px;
+  }
+
+  .showcase-heading {
+    font-size: 24px;
+  }
+
+  .showcase-label {
+    font-size: 10px;
+  }
+
+  /* Disable will-change on mobile to save memory */
+  .brand-reveal, .brand-logo, .hero-brand, .nav, .showcase-hero-card,
+  .network-node, .network-node-ring, .brand-orb, .floating-orb {
+    will-change: auto;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 380px) {
+  .showcase-hero-card {
+    max-width: 280px;
+    height: 170px;
+  }
+
+  .showcase-hero-nav {
+    width: 36px;
+    height: 36px;
+  }
+
+  .showcase-hero-nav.prev {
+    left: 4px;
+  }
+
+  .showcase-hero-nav.next {
+    right: 4px;
+  }
+
+  .hero-main {
+    padding: 80px 12px 30px;
+  }
+
+  .hero-ctas {
+    gap: 12px;
+  }
+
+  .btn-primary, .btn-secondary {
+    padding: 12px 20px;
+    font-size: 13px;
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .brand-orb,
+  .floating-orb,
+  .grid-lines,
+  .network-line,
+  .scroll-hint-line {
+    animation: none !important;
+  }
+}
+
+/* ============================================
    PAGE STYLES
    ============================================ */
 

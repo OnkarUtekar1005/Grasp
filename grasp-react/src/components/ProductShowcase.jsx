@@ -17,9 +17,22 @@ const ProductShowcase = ({ isVisible }) => {
   const [showcaseItems, setShowcaseItems] = useState(fallbackItems);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const carouselRef = useRef(null);
   const autoPlayRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
+
+  // Touch swipe support
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const fetchFeaturedProducts = async () => {
@@ -70,6 +83,28 @@ const ProductShowcase = ({ isVisible }) => {
 
   const prevSlide = () => {
     setCurrentIndex((prev) => (prev - 1 + itemCount) % itemCount);
+  };
+
+  // Touch handlers for swipe support
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    const minSwipeDistance = 50;
+
+    if (Math.abs(diff) > minSwipeDistance) {
+      if (diff > 0) {
+        nextSlide(); // Swipe left = next
+      } else {
+        prevSlide(); // Swipe right = prev
+      }
+    }
   };
 
   const startAutoPlay = useCallback(() => {
@@ -136,6 +171,9 @@ const ProductShowcase = ({ isVisible }) => {
           ref={carouselRef}
           onMouseEnter={stopAutoPlay}
           onMouseLeave={startAutoPlay}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           {showcaseItems.map((item, index) => (
             <div
