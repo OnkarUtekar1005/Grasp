@@ -1,37 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/images/logo.png';
-import { BACKEND_URL } from '../services';
 
 const Navbar = ({ isVisible }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [downloadingCatalog, setDownloadingCatalog] = useState(false);
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
-
-  const downloadCatalog = async () => {
-    if (downloadingCatalog) return;
-    setDownloadingCatalog(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/pdf/catalog`);
-      if (!response.ok) throw new Error('Failed to generate catalog');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Grasp-Electric-Catalog.pdf';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Catalog download failed:', error);
-      alert('Failed to download catalog. Please try again.');
-    } finally {
-      setDownloadingCatalog(false);
-    }
-  };
 
   return (
     <nav className={`nav ${isVisible ? 'visible' : ''}`}>
@@ -49,9 +24,9 @@ const Navbar = ({ isVisible }) => {
           </div>
         </div>
         <div className="nav-right">
-          <button onClick={downloadCatalog} className="nav-cta" disabled={downloadingCatalog}>
-            {downloadingCatalog ? 'Downloading...' : 'Download Catalog'}
-          </button>
+          <a href="/Grasp-Catalogue-2026.pdf" download="Grasp-Catalogue-2026.pdf" className="nav-cta">
+            Download Catalog
+          </a>
         </div>
         <button
           className="nav-toggle"
