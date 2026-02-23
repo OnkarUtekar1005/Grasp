@@ -23,7 +23,7 @@ const Footer = () => {
           <div className="footer-col">
             <h4>Products</h4>
             {displayCategories.map((category) => (
-              <Link key={category.id} to={`/products/category/${category.slug}`}>
+              <Link key={category.id} to={`/products?category=${category.slug}`}>
                 {category.name}
               </Link>
             ))}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Navbar,
   BrandReveal,
@@ -7,12 +7,13 @@ import {
   TrustedClients,
   Industries,
   FAQ,
-  Footer
+  Footer,
+  useLenis
 } from '../components';
 
 const Home = () => {
+  const lenis = useLenis();
   const [scrollState, setScrollState] = useState({
-    brandHidden: false,
     brandScale: 1,
     brandOpacity: 1,
     heroBrandVisible: false,
@@ -20,45 +21,30 @@ const Home = () => {
     navVisible: false
   });
 
-  const rafRef = useRef(null);
-  const lastScrollY = useRef(0);
-
-  const calculateScrollState = useCallback(() => {
-    const scrollY = window.scrollY;
-
-    // Skip if scroll position hasn't changed significantly (2px threshold)
-    if (Math.abs(scrollY - lastScrollY.current) < 2) return;
-    lastScrollY.current = scrollY;
-
+  const calculateScrollState = useCallback((scroll) => {
     const windowHeight = window.innerHeight;
-    const fadeStart = windowHeight * 0.3;
-    const fadeEnd = windowHeight * 0.7;
+    const fadeEnd = windowHeight * 0.5;
+    const revealStart = windowHeight * 0.3;
+    const revealEnd = windowHeight * 0.7;
 
-    let brandHidden = false;
-    let brandScale = 1;
-    let brandOpacity = 1;
+    // Brand fade: scroll 0 → fadeEnd
+    const fadeProgress = Math.min(scroll / fadeEnd, 1);
+    const brandScale = 1 - (0.2 * fadeProgress);
+    const brandOpacity = 1 - fadeProgress;
 
-    if (scrollY < fadeStart) {
-      const progress = scrollY / fadeStart;
-      brandScale = 1 - (0.3 * progress);
-      brandOpacity = 1 - progress;
-    } else {
-      brandHidden = true;
-    }
-
+    // Content reveal: revealStart → revealEnd
     let heroBrandVisible = false;
     let showcaseVisible = false;
     let navVisible = false;
 
-    if (scrollY >= fadeStart) {
-      const progress = Math.min((scrollY - fadeStart) / (fadeEnd - fadeStart), 1);
-      heroBrandVisible = progress > 0.2;
-      showcaseVisible = progress > 0.3;
-      navVisible = progress > 0.5;
+    if (scroll >= revealStart) {
+      const revealProgress = Math.min((scroll - revealStart) / (revealEnd - revealStart), 1);
+      heroBrandVisible = revealProgress > 0.2;
+      showcaseVisible = revealProgress > 0.3;
+      navVisible = revealProgress > 0.5;
     }
 
     setScrollState({
-      brandHidden,
       brandScale,
       brandOpacity,
       heroBrandVisible,
@@ -67,30 +53,26 @@ const Home = () => {
     });
   }, []);
 
-  const handleScroll = useCallback(() => {
-    // Throttle using requestAnimationFrame
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      calculateScrollState();
-      rafRef.current = null;
-    });
-  }, [calculateScrollState]);
-
   useEffect(() => {
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    calculateScrollState();
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (!lenis) return;
+
+    const handleScroll = (e) => {
+      calculateScrollState(e.animatedScroll ?? e.scroll ?? 0);
     };
-  }, [handleScroll, calculateScrollState]);
+
+    lenis.on('scroll', handleScroll);
+
+    // Calculate initial state
+    calculateScrollState(lenis.animatedScroll ?? lenis.scroll ?? 0);
+
+    return () => lenis.off('scroll', handleScroll);
+  }, [lenis, calculateScrollState]);
 
   return (
     <>
       <Navbar isVisible={scrollState.navVisible} />
 
       <BrandReveal
-        isHidden={scrollState.brandHidden}
         brandScale={scrollState.brandScale}
         brandOpacity={scrollState.brandOpacity}
       />

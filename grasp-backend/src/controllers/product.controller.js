@@ -3,6 +3,14 @@ const { response, generateSlug, generateUniqueSlug, parsePagination, buildPagina
 const { imageService } = require('../services');
 const path = require('path');
 
+// Helper to resolve document file path from stored URL
+function resolveDocPath(docUrl) {
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  // Strip leading /uploads/ prefix if present to avoid double-nesting
+  const cleaned = docUrl.replace(/^\/?uploads\//, '');
+  return path.join(uploadDir, cleaned);
+}
+
 // Common include for product queries
 const productInclude = {
   category: true, // Deprecated: kept for backward compatibility
@@ -69,6 +77,20 @@ async function getAll(req, res, next) {
       where.variants = {
         some: { stockQuantity: { gt: 0 }, isActive: true },
       };
+    }
+    // Filter by dimensions (min/max range)
+    if (req.query.minLength) where.dimensionLength = { ...where.dimensionLength, gte: parseFloat(req.query.minLength) };
+    if (req.query.maxLength) where.dimensionLength = { ...where.dimensionLength, lte: parseFloat(req.query.maxLength) };
+    if (req.query.minWidth) where.dimensionWidth = { ...where.dimensionWidth, gte: parseFloat(req.query.minWidth) };
+    if (req.query.maxWidth) where.dimensionWidth = { ...where.dimensionWidth, lte: parseFloat(req.query.maxWidth) };
+    if (req.query.minHeight) where.dimensionHeight = { ...where.dimensionHeight, gte: parseFloat(req.query.minHeight) };
+    if (req.query.maxHeight) where.dimensionHeight = { ...where.dimensionHeight, lte: parseFloat(req.query.maxHeight) };
+    // Filter by tags (supports comma-separated values for multi-select)
+    if (req.query.tags) {
+      const tagArray = req.query.tags.split(',').map(t => t.trim()).filter(Boolean);
+      if (tagArray.length > 0) {
+        where.tags = { hasSome: tagArray };
+      }
     }
 
     // Get products and count
@@ -226,7 +248,7 @@ async function create(req, res, next) {
     console.log('Body:', req.body);
     console.log('Files:', req.files);
 
-    let { name, description, category, categories, code, price, priceType, inStock, featured, specs, features } = req.body;
+    let { name, description, category, categories, code, dimensionLength, dimensionWidth, dimensionHeight, tags, price, priceType, inStock, featured, specs, features } = req.body;
 
     // Parse specs/features if they're JSON strings
     if (typeof specs === 'string') {
@@ -253,6 +275,18 @@ async function create(req, res, next) {
         console.warn('Failed to parse categories JSON:', e.message);
         categories = [];
       }
+    }
+    // Parse tags if it's a JSON string
+    if (typeof tags === 'string') {
+      try {
+        tags = JSON.parse(tags);
+      } catch (e) {
+        console.warn('Failed to parse tags JSON:', e.message);
+        tags = [];
+      }
+    }
+    if (!Array.isArray(tags)) {
+      tags = [];
     }
 
     // Handle both old single category and new multi-category format
@@ -293,6 +327,10 @@ async function create(req, res, next) {
         name,
         slug,
         code: code || null,
+        dimensionLength: dimensionLength ? parseFloat(dimensionLength) : null,
+        dimensionWidth: dimensionWidth ? parseFloat(dimensionWidth) : null,
+        dimensionHeight: dimensionHeight ? parseFloat(dimensionHeight) : null,
+        tags: tags.filter(t => t && t.trim()), // Filter out empty tags
         description: description || null,
         isFeatured: featured === 'true' || featured === true,
         isActive: true,
@@ -354,7 +392,7 @@ async function create(req, res, next) {
       for (let i = 0; i < docFiles.length; i++) {
         const file = docFiles[i];
         // Parse document metadata
-        let docMeta = { name: file.originalname.replace(/\.[^/.]+$/, ''), documentType: 'DATASHEET' };
+        let docMeta = { name: file.originalname.replace(/\.[^/.]+$/, ''), documentType: 'OTHER' };
         try {
           const metaKey = `documentMeta[${i}]`;
           if (req.body[metaKey]) {
@@ -369,7 +407,7 @@ async function create(req, res, next) {
             productId: product.id,
             name: docMeta.name || file.originalname,
             documentUrl: `/uploads/products/documents/${file.filename}`,
-            documentType: docMeta.documentType || 'DATASHEET',
+            documentType: docMeta.documentType || 'OTHER',
             fileSizeBytes: file.size,
           },
         });
@@ -401,7 +439,7 @@ async function update(req, res, next) {
     console.log('Body:', req.body);
     console.log('Files:', req.files);
 
-    let { name, description, category, categories, code, price, priceType, inStock, featured, specs, features, existingImages, existingDocuments } = req.body;
+    let { name, description, category, categories, code, dimensionLength, dimensionWidth, dimensionHeight, tags, price, priceType, inStock, featured, specs, features, existingImages } = req.body;
 
     // Parse JSON strings
     if (typeof specs === 'string') {
@@ -428,6 +466,14 @@ async function update(req, res, next) {
         categories = undefined;
       }
     }
+    if (typeof tags === 'string') {
+      try {
+        tags = JSON.parse(tags);
+      } catch (e) {
+        console.warn('Failed to parse tags JSON:', e.message);
+        tags = undefined;
+      }
+    }
     if (typeof existingImages === 'string') {
       try {
         existingImages = JSON.parse(existingImages);
@@ -436,15 +482,6 @@ async function update(req, res, next) {
         existingImages = [];
       }
     }
-    if (typeof existingDocuments === 'string') {
-      try {
-        existingDocuments = JSON.parse(existingDocuments);
-      } catch (e) {
-        console.warn('Failed to parse existingDocuments JSON:', e.message);
-        existingDocuments = [];
-      }
-    }
-
     // Check if product exists
     const existing = await prisma.product.findUnique({
       where: { id },
@@ -460,6 +497,12 @@ async function update(req, res, next) {
 
     if (name) updateData.name = name;
     if (code !== undefined) updateData.code = code || null;
+    if (dimensionLength !== undefined) updateData.dimensionLength = dimensionLength ? parseFloat(dimensionLength) : null;
+    if (dimensionWidth !== undefined) updateData.dimensionWidth = dimensionWidth ? parseFloat(dimensionWidth) : null;
+    if (dimensionHeight !== undefined) updateData.dimensionHeight = dimensionHeight ? parseFloat(dimensionHeight) : null;
+    if (tags !== undefined && Array.isArray(tags)) {
+      updateData.tags = tags.filter(t => t && t.trim());
+    }
     if (description !== undefined) updateData.description = description || null;
 
     // Handle category change (supports both old single and new multi-category)
@@ -580,26 +623,13 @@ async function update(req, res, next) {
       await prisma.productImage.createMany({ data: imageData });
     }
 
-    // Handle document removal - delete documents not in existingDocuments list
-    if (Array.isArray(existingDocuments)) {
-      const existingDocIds = existingDocuments.map(doc => doc.id).filter(Boolean);
-      const docsToDelete = existing.documents.filter(doc => !existingDocIds.includes(doc.id));
-
-      const uploadDir = process.env.UPLOAD_DIR || './uploads';
-      for (const doc of docsToDelete) {
-        console.log('Deleting removed document:', doc.documentUrl);
-        await imageService.deleteFile(path.join(uploadDir, doc.documentUrl.replace('/uploads/', ''))).catch(() => {});
-        await prisma.productDocument.delete({ where: { id: doc.id } });
-      }
-    }
-
     // Handle new document uploads
     const docFiles = req.files?.documents || [];
     if (docFiles.length > 0) {
       for (let i = 0; i < docFiles.length; i++) {
         const file = docFiles[i];
         // Parse document metadata from the request body
-        let docMeta = { name: file.originalname.replace(/\.[^/.]+$/, ''), documentType: 'DATASHEET' };
+        let docMeta = { name: file.originalname.replace(/\.[^/.]+$/, ''), documentType: 'OTHER' };
         try {
           const metaKey = `documentMeta[${i}]`;
           if (req.body[metaKey]) {
@@ -614,7 +644,7 @@ async function update(req, res, next) {
             productId: id,
             name: docMeta.name || file.originalname,
             documentUrl: `/uploads/products/documents/${file.filename}`,
-            documentType: docMeta.documentType || 'DATASHEET',
+            documentType: docMeta.documentType || 'OTHER',
             fileSizeBytes: file.size,
           },
         });
@@ -658,7 +688,7 @@ async function remove(req, res, next) {
       await imageService.deleteImage(path.join(uploadDir, image.imageUrl)).catch(() => {});
     }
     for (const doc of existing.documents) {
-      await imageService.deleteFile(path.join(uploadDir, doc.documentUrl)).catch(() => {});
+      await imageService.deleteFile(resolveDocPath(doc.documentUrl)).catch(() => {});
     }
 
     // Delete product (cascades to variants, images, etc.)
@@ -951,14 +981,14 @@ async function uploadDocument(req, res, next) {
     }
 
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
-    const relativePath = path.relative(uploadDir, req.file.path);
+    const relativePath = path.relative(uploadDir, req.file.path).replace(/\\/g, '/');
 
-    // Create document record
+    // Create document record - use /uploads/ prefix for consistency with inline uploads
     const document = await prisma.productDocument.create({
       data: {
         productId: id,
         name: name || req.file.originalname,
-        documentUrl: relativePath,
+        documentUrl: `/uploads/${relativePath}`,
         documentType: documentType || 'OTHER',
         fileSizeBytes: req.file.size,
       },
@@ -987,8 +1017,7 @@ async function removeDocument(req, res, next) {
     }
 
     // Delete file
-    const uploadDir = process.env.UPLOAD_DIR || './uploads';
-    await imageService.deleteFile(path.join(uploadDir, existing.documentUrl)).catch(() => {});
+    await imageService.deleteFile(resolveDocPath(existing.documentUrl)).catch(() => {});
 
     // Delete record
     await prisma.productDocument.delete({

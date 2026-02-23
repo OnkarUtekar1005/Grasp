@@ -7,7 +7,7 @@ import { productAPI, categoryAPI, BACKEND_URL } from '../services';
 const fuzzyMatch = (text, query) => {
   if (!text || !query) return { match: false, score: 0 };
 
-  const textLower = text.toLowerCase();
+  const textLower = String(text).toLowerCase();
   const queryLower = query.toLowerCase();
 
   // Exact match - highest score
@@ -125,6 +125,16 @@ const fuzzySearchProduct = (product, query, categories) => {
     { text: product.name, weight: 1.1 },        // Product name - high priority
     ...categoryCodes.map(code => ({ text: code, weight: 1.0 })),  // Category code
     ...categoryNames.map(name => ({ text: name, weight: 0.9 })),  // Category name
+    { text: product.dimensionLength ? `${product.dimensionLength}` : null, weight: 0.85 },  // Length
+    { text: product.dimensionWidth ? `${product.dimensionWidth}` : null, weight: 0.85 },    // Width
+    { text: product.dimensionHeight ? `${product.dimensionHeight}` : null, weight: 0.85 },  // Height
+    { text: product.dimensionLength && product.dimensionWidth && product.dimensionHeight
+        ? `${product.dimensionLength}x${product.dimensionWidth}x${product.dimensionHeight}`
+        : null, weight: 0.9 },  // Full dimension string e.g. "200x150x100"
+    ...(product.tags || []).map(tag => ({ text: String(tag), weight: 0.85 })),  // Tags
+    { text: product.specMaterial, weight: 0.8 },     // Material spec
+    { text: product.specIpRating, weight: 0.8 },     // IP Rating spec
+    { text: product.description, weight: 0.5 },      // Description - lowest priority
   ];
 
   let bestScore = 0;
@@ -184,8 +194,13 @@ const ProductGridCard = memo(({ product, categoryName, renderProductSVG, BACKEND
       </div>
       <div className="product-grid-content">
         <h3 className="product-grid-name">{product.name}</h3>
-        {categoryName && <div className="product-grid-category">{categoryName}</div>}
+        {(product.dimensionLength || product.dimensionWidth || product.dimensionHeight) && (
+          <div className="product-grid-size">
+            <strong>Size:</strong> {[product.dimensionLength, product.dimensionWidth, product.dimensionHeight].filter(Boolean).join(' x ')} mm
+          </div>
+        )}
         <p className="product-grid-desc">{product.description || product.desc}</p>
+        {categoryName && <div className="product-grid-category">{categoryName}</div>}
         {product.price && (
           <div className="product-grid-price">₹{product.price.toLocaleString()}</div>
         )}
@@ -211,6 +226,7 @@ const Products = () => {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
   const [showMoreProducts, setShowMoreProducts] = useState({});
+  const [visibleCount, setVisibleCount] = useState(10);
   const productsGridRef = useRef(null);
 
   // Disable pointer events during scroll to prevent hover lag
@@ -238,6 +254,10 @@ const Products = () => {
   const [filters, setFilters] = useState({
     categories: [],
     products: [], // Selected product IDs
+    dimensions: { minL: '', maxL: '', minW: '', maxW: '', minH: '', maxH: '' }, // Dimension filters
+    rangeCodes: [], // Range Code filter (from product.code)
+    rangeNames: [], // Range Name filter (from category name)
+    tags: [], // Tags filter (from products and categories)
     ipRatings: [],
     materials: [],
     mountingTypes: [],
@@ -245,6 +265,9 @@ const Products = () => {
     inStockOnly: false,
     featuredOnly: false
   });
+
+  // Tag search state
+  const [tagSearch, setTagSearch] = useState('');
 
   // Memoize products per category to avoid recalculating on every render
   const productsByCategory = useMemo(() => {
@@ -295,13 +318,34 @@ const Products = () => {
 
   // Extract unique filter options from products
   const filterOptions = useMemo(() => {
+    const rangeCodes = new Set();
+    const rangeNames = new Set();
+    const tags = new Set();
     const ipRatings = new Set();
     const materials = new Set();
     const mountingTypes = new Set();
     let minPrice = Infinity;
     let maxPrice = 0;
 
+    // Extract tags from products
     products.forEach(product => {
+      // Extract range code from product code
+      if (product.code) {
+        rangeCodes.add(product.code);
+      }
+      // Extract range name from category names
+      if (product.categories && Array.isArray(product.categories)) {
+        product.categories.forEach(pc => {
+          if (pc.category?.name) rangeNames.add(pc.category.name);
+        });
+      } else if (product.categoryId) {
+        const cat = categories.find(c => c.id === product.categoryId);
+        if (cat?.name) rangeNames.add(cat.name);
+      }
+      // Extract product tags
+      if (product.tags && Array.isArray(product.tags)) {
+        product.tags.forEach(tag => tags.add(tag));
+      }
       if (product.specs) {
         if (product.specs.protection) {
           ipRatings.add(product.specs.protection);
@@ -319,13 +363,23 @@ const Products = () => {
       }
     });
 
+    // Extract tags from categories (product ranges)
+    categories.forEach(category => {
+      if (category.tags && Array.isArray(category.tags)) {
+        category.tags.forEach(tag => tags.add(tag));
+      }
+    });
+
     return {
+      rangeCodes: Array.from(rangeCodes).sort(),
+      rangeNames: Array.from(rangeNames).sort(),
+      tags: Array.from(tags).sort(),
       ipRatings: Array.from(ipRatings).sort(),
       materials: Array.from(materials).sort(),
       mountingTypes: Array.from(mountingTypes).sort(),
       priceRange: { min: minPrice === Infinity ? 0 : minPrice, max: maxPrice }
     };
-  }, [products]);
+  }, [products, categories]);
 
   // Fetch initial data
   useEffect(() => {
@@ -396,6 +450,54 @@ const Products = () => {
       result = result.filter(product => filters.products.includes(product.id));
     }
 
+    // Dimension filters (L x W x H)
+    const dim = filters.dimensions;
+    if (dim.minL) result = result.filter(p => p.dimensionLength && p.dimensionLength >= parseFloat(dim.minL));
+    if (dim.maxL) result = result.filter(p => p.dimensionLength && p.dimensionLength <= parseFloat(dim.maxL));
+    if (dim.minW) result = result.filter(p => p.dimensionWidth && p.dimensionWidth >= parseFloat(dim.minW));
+    if (dim.maxW) result = result.filter(p => p.dimensionWidth && p.dimensionWidth <= parseFloat(dim.maxW));
+    if (dim.minH) result = result.filter(p => p.dimensionHeight && p.dimensionHeight >= parseFloat(dim.minH));
+    if (dim.maxH) result = result.filter(p => p.dimensionHeight && p.dimensionHeight <= parseFloat(dim.maxH));
+
+    // Range Code filter
+    if (filters.rangeCodes.length > 0) {
+      result = result.filter(product =>
+        product.code && filters.rangeCodes.includes(product.code)
+      );
+    }
+
+    // Range Name filter
+    if (filters.rangeNames.length > 0) {
+      result = result.filter(product => {
+        if (product.categories && Array.isArray(product.categories)) {
+          return product.categories.some(pc =>
+            pc.category?.name && filters.rangeNames.includes(pc.category.name)
+          );
+        }
+        const cat = categories.find(c => c.id === product.categoryId);
+        return cat?.name && filters.rangeNames.includes(cat.name);
+      });
+    }
+
+    // Tags filter (matches if product has any of the selected tags OR belongs to a category with those tags)
+    if (filters.tags.length > 0) {
+      result = result.filter(product => {
+        // Check product tags
+        const hasProductTag = product.tags && Array.isArray(product.tags) &&
+          product.tags.some(tag => filters.tags.includes(tag));
+        if (hasProductTag) return true;
+
+        // Check category tags
+        if (product.categories && Array.isArray(product.categories)) {
+          return product.categories.some(pc => {
+            const cat = categories.find(c => c.id === pc.categoryId || c.id === pc.category?.id);
+            return cat?.tags && Array.isArray(cat.tags) && cat.tags.some(tag => filters.tags.includes(tag));
+          });
+        }
+        return false;
+      });
+    }
+
     // IP Rating filter
     if (filters.ipRatings.length > 0) {
       result = result.filter(product =>
@@ -463,6 +565,16 @@ const Products = () => {
     return result;
   }, [products, categories, searchQuery, filters]);
 
+  // Reset visible count when filters or search change
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [searchQuery, filters]);
+
+  // Products to display (paginated)
+  const visibleProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
+
   // Toggle filter value
   const toggleFilter = (filterType, value) => {
     setFilters(prev => {
@@ -479,6 +591,10 @@ const Products = () => {
     setFilters({
       categories: [],
       products: [],
+      dimensions: { minL: '', maxL: '', minW: '', maxW: '', minH: '', maxH: '' },
+      rangeCodes: [],
+      rangeNames: [],
+      tags: [],
       ipRatings: [],
       materials: [],
       mountingTypes: [],
@@ -487,6 +603,7 @@ const Products = () => {
       featuredOnly: false
     });
     setSearchQuery('');
+    setTagSearch('');
     setSearchParams({});
     setExpandedCategories({});
     setShowMoreProducts({});
@@ -497,6 +614,10 @@ const Products = () => {
     let count = 0;
     count += filters.categories.length;
     count += filters.products.length;
+    if (Object.values(filters.dimensions).some(v => v !== '')) count++;
+    count += filters.rangeCodes.length;
+    count += filters.rangeNames.length;
+    count += filters.tags.length;
     count += filters.ipRatings.length;
     count += filters.materials.length;
     count += filters.mountingTypes.length;
@@ -813,9 +934,174 @@ const Products = () => {
                 )}
               </FilterSection>
 
+              {/* Size (L x W x H) */}
+              <FilterSection title="Size (mm)" defaultOpen={false}>
+                <div className="dimension-filter-group">
+                  <div className="dimension-row">
+                    <span className="dimension-label">Length</span>
+                    <div className="dimension-inputs">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        min="0"
+                        value={filters.dimensions.minL}
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                          ...prev,
+                          dimensions: { ...prev.dimensions, minL: e.target.value }
+                        })); }}
+                      />
+                      <span className="dimension-separator">-</span>
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        min="0"
+                        value={filters.dimensions.maxL}
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                          ...prev,
+                          dimensions: { ...prev.dimensions, maxL: e.target.value }
+                        })); }}
+                      />
+                    </div>
+                  </div>
+                  <div className="dimension-row">
+                    <span className="dimension-label">Width</span>
+                    <div className="dimension-inputs">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        min="0"
+                        value={filters.dimensions.minW}
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                          ...prev,
+                          dimensions: { ...prev.dimensions, minW: e.target.value }
+                        })); }}
+                      />
+                      <span className="dimension-separator">-</span>
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        min="0"
+                        value={filters.dimensions.maxW}
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                          ...prev,
+                          dimensions: { ...prev.dimensions, maxW: e.target.value }
+                        })); }}
+                      />
+                    </div>
+                  </div>
+                  <div className="dimension-row">
+                    <span className="dimension-label">Height</span>
+                    <div className="dimension-inputs">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        min="0"
+                        value={filters.dimensions.minH}
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                          ...prev,
+                          dimensions: { ...prev.dimensions, minH: e.target.value }
+                        })); }}
+                      />
+                      <span className="dimension-separator">-</span>
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        min="0"
+                        value={filters.dimensions.maxH}
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                          ...prev,
+                          dimensions: { ...prev.dimensions, maxH: e.target.value }
+                        })); }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </FilterSection>
+
+              {/* Range Code */}
+              {filterOptions.rangeCodes.length > 0 && (
+                <FilterSection title="Range Code" defaultOpen={false}>
+                  <div className="filter-options">
+                    {filterOptions.rangeCodes.map(code => (
+                      <label key={code} className="filter-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={filters.rangeCodes.includes(code)}
+                          onChange={() => toggleFilter('rangeCodes', code)}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="filter-label">{code}</span>
+                      </label>
+                    ))}
+                  </div>
+                </FilterSection>
+              )}
+
+              {/* Range Name */}
+              {filterOptions.rangeNames.length > 0 && (
+                <FilterSection title="Range Name" defaultOpen={false}>
+                  <div className="filter-options">
+                    {filterOptions.rangeNames.map(name => (
+                      <label key={name} className="filter-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={filters.rangeNames.includes(name)}
+                          onChange={() => toggleFilter('rangeNames', name)}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="filter-label">{name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </FilterSection>
+              )}
+
+              {/* Tags */}
+              {filterOptions.tags.length > 0 && (
+                <FilterSection title="Tags" defaultOpen={false}>
+                  <div className="filter-search-box">
+                    <input
+                      type="text"
+                      placeholder="Search tags..."
+                      value={tagSearch}
+                      onChange={(e) => setTagSearch(e.target.value)}
+                      className="filter-search-input"
+                    />
+                    {tagSearch && (
+                      <button
+                        className="filter-search-clear"
+                        onClick={() => setTagSearch('')}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <div className="filter-options filter-options-scrollable">
+                    {filterOptions.tags
+                      .filter(tag => tag.toLowerCase().includes(tagSearch.toLowerCase()))
+                      .map(tag => (
+                        <label key={tag} className="filter-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={filters.tags.includes(tag)}
+                            onChange={() => toggleFilter('tags', tag)}
+                          />
+                          <span className="checkmark"></span>
+                          <span className="filter-label">{tag}</span>
+                        </label>
+                      ))}
+                    {filterOptions.tags.filter(tag => tag.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
+                      <p className="filter-no-results">No tags found</p>
+                    )}
+                  </div>
+                </FilterSection>
+              )}
+
               {/* IP Rating */}
               {filterOptions.ipRatings.length > 0 && (
-                <FilterSection title="IP Rating">
+                <FilterSection title="IP Rating" defaultOpen={false}>
                   <div className="filter-options">
                     {filterOptions.ipRatings.map(rating => (
                       <label key={rating} className="filter-checkbox">
@@ -834,7 +1120,7 @@ const Products = () => {
 
               {/* Material */}
               {filterOptions.materials.length > 0 && (
-                <FilterSection title="Material">
+                <FilterSection title="Material" defaultOpen={false}>
                   <div className="filter-options">
                     {filterOptions.materials.map(material => (
                       <label key={material} className="filter-checkbox">
@@ -853,7 +1139,7 @@ const Products = () => {
 
               {/* Mounting Type */}
               {filterOptions.mountingTypes.length > 0 && (
-                <FilterSection title="Mounting Type">
+                <FilterSection title="Mounting Type" defaultOpen={false}>
                   <div className="filter-options">
                     {filterOptions.mountingTypes.map(type => (
                       <label key={type} className="filter-checkbox">
@@ -871,7 +1157,7 @@ const Products = () => {
               )}
 
               {/* Price Range */}
-              <FilterSection title="Price Range">
+              <FilterSection title="Price Range" defaultOpen={false}>
                 <div className="price-range-inputs">
                   <div className="price-input-group">
                     <span className="price-currency">₹</span>
@@ -907,7 +1193,7 @@ const Products = () => {
               </FilterSection>
 
               {/* Availability */}
-              <FilterSection title="Availability">
+              <FilterSection title="Availability" defaultOpen={false}>
                 <div className="filter-options">
                   <label className="filter-checkbox">
                     <input
@@ -960,6 +1246,33 @@ const Products = () => {
                       </span>
                     );
                   })}
+                  {Object.values(filters.dimensions).some(v => v !== '') && (
+                    <span className="filter-tag">
+                      Size
+                      <button onClick={() => setFilters(prev => ({
+                        ...prev,
+                        dimensions: { minL: '', maxL: '', minW: '', maxW: '', minH: '', maxH: '' }
+                      }))}>×</button>
+                    </span>
+                  )}
+                  {filters.rangeCodes.map(code => (
+                    <span key={code} className="filter-tag">
+                      Code: {code}
+                      <button onClick={() => toggleFilter('rangeCodes', code)}>×</button>
+                    </span>
+                  ))}
+                  {filters.rangeNames.map(name => (
+                    <span key={name} className="filter-tag">
+                      Range: {name}
+                      <button onClick={() => toggleFilter('rangeNames', name)}>×</button>
+                    </span>
+                  ))}
+                  {filters.tags.map(tag => (
+                    <span key={tag} className="filter-tag">
+                      {tag}
+                      <button onClick={() => toggleFilter('tags', tag)}>×</button>
+                    </span>
+                  ))}
                   {filters.ipRatings.map(rating => (
                     <span key={rating} className="filter-tag">
                       {rating}
@@ -1031,7 +1344,7 @@ const Products = () => {
             ) : (
               <div ref={productsGridRef} className={`products-grid-container ${viewMode}`}>
                 {viewMode === 'grid' ? (
-                  filteredProducts.map((product) => {
+                  visibleProducts.map((product) => {
                     // Get category name(s) - support both old and new format
                     let categoryName = '';
                     if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
@@ -1050,7 +1363,7 @@ const Products = () => {
                     );
                   })
                 ) : (
-                  filteredProducts.map((product) => {
+                  visibleProducts.map((product) => {
                     const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
                     const imageUrl = primaryImage?.imageUrl || product.image;
                     // Get category name(s) - support both old and new format
@@ -1127,6 +1440,13 @@ const Products = () => {
                   })
                 )}
               </div>
+              {filteredProducts.length > visibleCount && (
+                <div className="load-more-bar">
+                  <button className="load-more-btn" onClick={() => setVisibleCount(prev => prev + 10)}>
+                    Show More ({filteredProducts.length - visibleCount} remaining)
+                  </button>
+                </div>
+              )}
             )}
           </div>
         </div>

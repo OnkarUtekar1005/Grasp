@@ -13,6 +13,8 @@ const ProductDetail = () => {
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const specsRef = useRef(null);
 
+  const product = getProductById(slug);
+
   // Function to download product PDF from backend
   const downloadProductPDF = async () => {
     if (downloadingPDF) return;
@@ -31,7 +33,7 @@ const ProductDetail = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${slug}-datasheet.pdf`;
+      a.download = `${product?.name || slug}-datasheet.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -43,8 +45,6 @@ const ProductDetail = () => {
       setDownloadingPDF(false);
     }
   };
-
-  const product = getProductById(slug);
 
   // Get categories - support both old single category and new multi-category
   const productCategories = [];
@@ -459,7 +459,7 @@ const ProductDetail = () => {
                     key={doc.id || index}
                     href={`${BACKEND_URL}${doc.documentUrl}`}
                     className="download-card"
-                    download
+                    download={`${doc.name}${doc.documentUrl?.substring(doc.documentUrl.lastIndexOf('.')) || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

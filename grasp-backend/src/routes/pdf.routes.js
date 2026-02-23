@@ -10,4 +10,11 @@ const router = express.Router();
  */
 router.get('/products/:slug', pdfController.generateProductPDF);
 
+/**
+ * @route   GET /api/v1/pdf/catalog
+ * @desc    Generate and download full product catalog PDF
+ * @access  Public
+ */
+router.get('/catalog', pdfController.generateCatalogPDF);
+
 module.exports = router;

@@ -57,6 +57,9 @@ model Category {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  // Tags (for filtering) - free-form tags for product range filtering
+  tags        String[] @default([])
+
   specs             CategorySpec[]
   products          Product[]           // Deprecated: kept for backward compatibility
   productCategories ProductCategory[]   // New: many-to-many relation
@@ -104,6 +107,14 @@ model Product {
   code            String?
   description     String?
   fullDescription String? @map("full_description")
+
+  // Dimensions (for filtering) - in mm
+  dimensionLength      Float?  @map("dimension_length")
+  dimensionWidth       Float?  @map("dimension_width")
+  dimensionHeight      Float?  @map("dimension_height")
+
+  // Tags (for filtering) - free-form tags like size, color, etc.
+  tags                 String[] @default([])
 
   // Fixed specifications
   specMaterial         String? @map("spec_material")

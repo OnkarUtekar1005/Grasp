@@ -2,10 +2,11 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider, ProductProvider } from './contexts';
 import { ProtectedRoute, SmoothScroll } from './components';
 import { AdminLayout } from './layouts';
-import { Home, Products, ProductDetail, CategoryProducts, Gallery, About, Contact, QuoteRequest, Downloads } from './pages';
+import { Home, Products, ProductDetail, Gallery, About, Contact, QuoteRequest, Downloads } from './pages';
 import HomeElectrical from './pages/HomeElectrical';
 import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm, Inquiries, GalleryList, GalleryForm } from './admin/pages';
 import './styles/index.css';
+import './styles/mobile.css';
 
 // 404 Not Found Component
 const NotFound = () => (
@@ -28,7 +29,6 @@ function App() {
             <Route path="/home-v2" element={<HomeElectrical />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/:slug" element={<ProductDetail />} />
-            <Route path="/products/category/:slug" element={<CategoryProducts />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />

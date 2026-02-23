@@ -63,6 +63,10 @@ const createProductSchema = {
     category: z.string().optional(), // Deprecated: single category slug (backward compat)
     categories: arrayFromFormData, // New: array of category slugs
     code: z.string().max(50).optional(),
+    dimensionLength: z.union([z.number().min(0), z.string().transform(val => val === '' ? null : parseFloat(val))]).optional().nullable().refine(val => val === null || val === undefined || val >= 0, { message: 'Length must be positive' }),
+    dimensionWidth: z.union([z.number().min(0), z.string().transform(val => val === '' ? null : parseFloat(val))]).optional().nullable().refine(val => val === null || val === undefined || val >= 0, { message: 'Width must be positive' }),
+    dimensionHeight: z.union([z.number().min(0), z.string().transform(val => val === '' ? null : parseFloat(val))]).optional().nullable().refine(val => val === null || val === undefined || val >= 0, { message: 'Height must be positive' }),
+    tags: arrayFromFormData, // Tags for filtering (array of strings)
     price: z.union([
       z.number(),
       z.string().transform(val => val === '' ? null : parseFloat(val)),
@@ -73,7 +77,7 @@ const createProductSchema = {
     specs: specsArrayFromFormData,
     features: arrayFromFormData,
     existingImages: z.string().optional(), // JSON string of existing images
-  }).refine(
+  }).passthrough().refine(
     data => data.category || (data.categories && data.categories.length > 0),
     { message: 'At least one category is required', path: ['categories'] }
   ),
@@ -89,6 +93,10 @@ const updateProductSchema = {
     category: z.string().optional(), // Deprecated: single category slug (backward compat)
     categories: arrayFromFormData, // New: array of category slugs
     code: z.string().max(50).optional().nullable(),
+    dimensionLength: z.union([z.number().min(0), z.string().transform(val => val === '' ? null : parseFloat(val))]).optional().nullable().refine(val => val === null || val === undefined || val >= 0, { message: 'Length must be positive' }),
+    dimensionWidth: z.union([z.number().min(0), z.string().transform(val => val === '' ? null : parseFloat(val))]).optional().nullable().refine(val => val === null || val === undefined || val >= 0, { message: 'Width must be positive' }),
+    dimensionHeight: z.union([z.number().min(0), z.string().transform(val => val === '' ? null : parseFloat(val))]).optional().nullable().refine(val => val === null || val === undefined || val >= 0, { message: 'Height must be positive' }),
+    tags: arrayFromFormData, // Tags for filtering (array of strings)
     price: z.union([
       z.number(),
       z.string().transform(val => val === '' ? null : parseFloat(val)),
@@ -99,7 +107,7 @@ const updateProductSchema = {
     specs: specsArrayFromFormData,
     features: arrayFromFormData,
     existingImages: z.string().optional(), // JSON string of existing images
-  }),
+  }).passthrough(),
 };
 
 const productIdSchema = {
@@ -119,6 +127,13 @@ const productQuerySchema = {
     page: z.string().optional().transform(val => parseInt(val) || 1),
     limit: z.string().optional().transform(val => parseInt(val) || 20),
     category: z.string().optional(),
+    minLength: z.string().optional(),
+    maxLength: z.string().optional(),
+    minWidth: z.string().optional(),
+    maxWidth: z.string().optional(),
+    minHeight: z.string().optional(),
+    maxHeight: z.string().optional(),
+    tags: z.string().optional(), // Comma-separated tag values for filtering
     featured: z.string().optional().transform(val => val === 'true'),
     search: z.string().optional(),
     sort: z.string().optional(),

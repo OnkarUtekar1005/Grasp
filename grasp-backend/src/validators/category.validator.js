@@ -33,6 +33,7 @@ const createCategorySchema = {
     isFeatured: booleanFromFormData.default(false),
     sortOrder: numberFromFormData.default(0),
     specs: arrayFromFormData,
+    tags: arrayFromFormData, // Tags for product range filtering
   }),
 };
 
@@ -48,6 +49,7 @@ const updateCategorySchema = {
     isFeatured: booleanFromFormData,
     sortOrder: numberFromFormData,
     specs: arrayFromFormData,
+    tags: arrayFromFormData, // Tags for product range filtering
     existingImage: z.string().optional(),
     removeImage: z.string().optional(), // Flag to explicitly remove the image
   }),

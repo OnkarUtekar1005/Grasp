@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 // Import all client logos
 import logo1 from '../assets/logos/1 (2).png';
 import logo2 from '../assets/logos/2 (2).png';
@@ -34,12 +36,43 @@ const clients = [
 ];
 
 const TrustedClients = () => {
+  const trackRef = useRef(null);
+  const posRef = useRef(0);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    // Wait one frame for images to load and layout to settle
+    const startTimeout = setTimeout(() => {
+      const halfWidth = track.scrollWidth / 2;
+      const speed = 0.5; // pixels per frame
+
+      const animate = () => {
+        posRef.current -= speed;
+        if (Math.abs(posRef.current) >= halfWidth) {
+          posRef.current += halfWidth;
+        }
+        track.style.transform = `translateX(${posRef.current}px)`;
+        rafRef.current = requestAnimationFrame(animate);
+      };
+
+      rafRef.current = requestAnimationFrame(animate);
+    }, 100);
+
+    return () => {
+      clearTimeout(startTimeout);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
   return (
     <section className="trusted-clients">
       <div className="trusted-clients-inner">
         <div className="trusted-label">Trusted By Industry Leaders</div>
         <div className="clients-marquee">
-          <div className="clients-track">
+          <div className="clients-track" ref={trackRef}>
             {[...clients, ...clients].map((client, index) => (
               <div key={index} className="client-item">
                 <img src={client.logo} alt={client.name} className="client-logo" />

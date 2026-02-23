@@ -14,7 +14,7 @@ function validate(schema) {
       const result = schema.body.safeParse(req.body);
       if (!result.success) {
         errors.push(
-          ...result.error.errors.map((e) => ({
+          ...result.error.issues.map((e) => ({
             field: `body.${e.path.join('.')}`,
             message: e.message,
           }))
@@ -29,7 +29,7 @@ function validate(schema) {
       const result = schema.query.safeParse(req.query);
       if (!result.success) {
         errors.push(
-          ...result.error.errors.map((e) => ({
+          ...result.error.issues.map((e) => ({
             field: `query.${e.path.join('.')}`,
             message: e.message,
           }))
@@ -43,7 +43,7 @@ function validate(schema) {
     if (schema.params) {
       const result = schema.params.safeParse(req.params);
       if (!result.success) {
-        const errorList = result.error?.errors || [];
+        const errorList = result.error?.issues || [];
         errors.push(
           ...errorList.map((e) => ({
             field: `params.${e.path.join('.')}`,

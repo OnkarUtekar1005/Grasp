@@ -22,7 +22,11 @@ const CategoryForm = () => {
     description: '',
     featured: false,
     specs: [''],
+    tags: [], // Tags for product range filtering
   });
+
+  // Tag input state
+  const [tagInput, setTagInput] = useState('');
 
   // Image state - similar to ProductForm pattern
   const [newImage, setNewImage] = useState(null);
@@ -54,6 +58,7 @@ const CategoryForm = () => {
           description: category.description || '',
           featured: category.isFeatured || false,
           specs,
+          tags: category.tags || [],
         });
         if (category.imageUrl) {
           setExistingImage(category.imageUrl);
@@ -216,6 +221,9 @@ const CategoryForm = () => {
       const filteredSpecs = formData.specs.filter(s => s.trim());
       submitData.append('specs', JSON.stringify(filteredSpecs));
 
+      // Add tags as JSON
+      submitData.append('tags', JSON.stringify(formData.tags));
+
       // Handle images - ALWAYS send existingImage (even if empty)
       // This tells the backend what to keep
       if (newImage) {
@@ -308,6 +316,7 @@ const CategoryForm = () => {
                 submitData.append('description', formData.description);
                 submitData.append('isFeatured', formData.featured);
                 submitData.append('specs', JSON.stringify(formData.specs.filter(s => s.trim())));
+                submitData.append('tags', JSON.stringify(formData.tags));
 
                 if (newImage) {
                   submitData.append('image', newImage);
@@ -515,6 +524,70 @@ const CategoryForm = () => {
                   <span>Featured Product Range</span>
                 </label>
                 <small>Featured product ranges are highlighted on the homepage</small>
+              </div>
+
+              <div className="form-group">
+                <label>Product Range Tags</label>
+                <div className="tags-input-container">
+                  {formData.tags.length > 0 && (
+                    <div className="tags-list">
+                      {formData.tags.map((tag, index) => (
+                        <span key={index} className="tag-item">
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                tags: prev.tags.filter((_, i) => i !== index)
+                              }));
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="tag-input-row">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && tagInput.trim()) {
+                          e.preventDefault();
+                          if (!formData.tags.includes(tagInput.trim())) {
+                            setFormData(prev => ({
+                              ...prev,
+                              tags: [...prev.tags, tagInput.trim()]
+                            }));
+                          }
+                          setTagInput('');
+                        }
+                      }}
+                      placeholder="Type a tag and press Enter"
+                    />
+                    <button
+                      type="button"
+                      className="btn-add-tag"
+                      onClick={() => {
+                        if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+                          setFormData(prev => ({
+                            ...prev,
+                            tags: [...prev.tags, tagInput.trim()]
+                          }));
+                          setTagInput('');
+                        }
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+                <small>Add tags for filtering this product range</small>
               </div>
             </div>
 

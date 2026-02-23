@@ -11,3 +11,4 @@ export { default as Footer } from './Footer';
 export { default as ProtectedRoute } from './ProtectedRoute';
 export { default as ScrollToTop } from './ScrollToTop';
 export { default as SmoothScroll } from './SmoothScroll';
+export { useLenis } from './SmoothScroll';

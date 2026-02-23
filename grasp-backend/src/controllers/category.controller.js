@@ -78,7 +78,7 @@ async function getBySlug(req, res, next) {
  */
 async function create(req, res, next) {
   try {
-    let { name, slug: customSlug, code, description, isFeatured, sortOrder, specs } = req.body;
+    let { name, slug: customSlug, code, description, isFeatured, sortOrder, specs, tags } = req.body;
 
     // Parse specs if it's a JSON string (from FormData)
     if (typeof specs === 'string') {
@@ -87,6 +87,17 @@ async function create(req, res, next) {
       } catch {
         specs = [];
       }
+    }
+    // Parse tags if it's a JSON string (from FormData)
+    if (typeof tags === 'string') {
+      try {
+        tags = JSON.parse(tags);
+      } catch {
+        tags = [];
+      }
+    }
+    if (!Array.isArray(tags)) {
+      tags = [];
     }
 
     // Generate or use custom slug
@@ -104,7 +115,7 @@ async function create(req, res, next) {
       imageUrl = `/uploads/categories/${req.file.filename}`;
     }
 
-    // Create category with specs
+    // Create category with specs and tags
     const category = await prisma.category.create({
       data: {
         name,
@@ -114,6 +125,7 @@ async function create(req, res, next) {
         isFeatured: isFeatured === 'true' || isFeatured === true,
         sortOrder: sortOrder ? parseInt(sortOrder, 10) : 0,
         imageUrl,
+        tags: tags.filter(t => t && t.trim()), // Filter out empty tags
         specs: Array.isArray(specs) && specs.length > 0
           ? {
               create: specs.map((specValue, index) => ({
@@ -145,7 +157,7 @@ async function update(req, res, next) {
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('Request file:', req.file);
 
-    const { name, slug: customSlug, code, description, isFeatured, sortOrder, specs, existingImage } = req.body;
+    let { name, slug: customSlug, code, description, isFeatured, sortOrder, specs, tags, existingImage } = req.body;
     console.log('existingImage value:', existingImage, '| type:', typeof existingImage, '| length:', existingImage?.length);
 
     // Check if category exists
@@ -167,6 +179,18 @@ async function update(req, res, next) {
       }
     } else {
       parsedSpecs = specs;
+    }
+
+    // Parse tags if it's a JSON string (from FormData)
+    let parsedTags;
+    if (typeof tags === 'string') {
+      try {
+        parsedTags = JSON.parse(tags);
+      } catch {
+        parsedTags = undefined;
+      }
+    } else {
+      parsedTags = tags;
     }
 
     // Handle slug update
@@ -224,6 +248,9 @@ async function update(req, res, next) {
     if (parsedIsFeatured !== undefined) updateData.isFeatured = parsedIsFeatured;
     if (parsedSortOrder !== undefined) updateData.sortOrder = parsedSortOrder;
     if (newImageUrl !== undefined) updateData.imageUrl = newImageUrl;
+    if (parsedTags !== undefined && Array.isArray(parsedTags)) {
+      updateData.tags = parsedTags.filter(t => t && t.trim());
+    }
 
     console.log('=== PRISMA UPDATE ===');
     console.log('updateData:', JSON.stringify(updateData, null, 2));

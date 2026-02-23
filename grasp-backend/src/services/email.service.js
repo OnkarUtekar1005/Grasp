@@ -2,7 +2,7 @@ const { transporter } = require('../config');
 const { logger } = require('../utils');
 
 const FROM_EMAIL = process.env.SMTP_FROM || 'noreply@graspelectric.com';
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').filter(Boolean);
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'techviewai@gmail.com').split(',').filter(Boolean);
 
 /**
  * Send an email

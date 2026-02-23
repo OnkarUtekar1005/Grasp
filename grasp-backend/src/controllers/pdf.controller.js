@@ -74,6 +74,58 @@ const generateProductPDF = async (req, res, next) => {
   }
 };
 
+/**
+ * Generate and download full product catalog PDF
+ * GET /api/v1/pdf/catalog
+ */
+const generateCatalogPDF = async (req, res, next) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: { isActive: true },
+      include: {
+        category: true,
+        categories: {
+          include: {
+            category: true
+          }
+        },
+        images: {
+          orderBy: [
+            { isPrimary: 'desc' },
+            { sortOrder: 'asc' }
+          ]
+        },
+        features: {
+          orderBy: { sortOrder: 'asc' }
+        },
+        dynamicSpecs: {
+          orderBy: { sortOrder: 'asc' }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+
+    logger.info(`Generating catalog PDF with ${products.length} products`);
+
+    const pdfBuffer = await pdfService.generateCatalogPDF(products, baseUrl);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="Grasp-Electric-Catalog.pdf"');
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+
+    logger.info('Catalog PDF generated successfully');
+  } catch (error) {
+    logger.error('Error generating catalog PDF:', error);
+    next(error);
+  }
+};
+
 module.exports = {
-  generateProductPDF
+  generateProductPDF,
+  generateCatalogPDF
 };

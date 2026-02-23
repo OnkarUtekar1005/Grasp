@@ -1,0 +1,98 @@
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   Separate file — desktop styles in index.css are untouched.
+   Only @media queries here.
+   ============================================ */
+
+/* ── 768px and below ── */
+@media (max-width: 768px) {
+
+  /* Prevent horizontal overflow on mobile */
+  html { overflow-x: hidden; }
+  .brand-reveal { width: 100% !important; }
+  .brand-reveal-electrical { width: 100% !important; }
+
+  /* Page Hero — tighter padding */
+  .page-hero { padding: 110px 16px 48px; }
+  .page-desc { font-size: 15px; }
+
+  /* Product Detail — gallery & info */
+  .product-hero-section { padding: 24px 16px 48px; }
+  .product-main-image-enhanced { min-height: 280px; padding: 24px; border-radius: 14px; }
+  .product-main-image-enhanced img { max-height: 260px; }
+  .product-thumbnails { gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .product-thumbnail { width: 60px; height: 60px; flex-shrink: 0; }
+  .product-title-enhanced { font-size: 22px; }
+  .product-description-enhanced { font-size: 14px; }
+
+  /* Product Tabs */
+  .product-tabs-section { padding: 40px 16px; }
+  .product-tabs-content { padding: 24px 16px; border-radius: 14px; }
+
+  /* Product CTA */
+  .product-cta-section { padding: 48px 16px; }
+  .product-cta-content h2 { font-size: 22px; }
+
+  /* Related Products header */
+  .related-products-section { padding: 40px 16px 60px; }
+
+  /* Contact Page */
+  .contact-page { padding: 48px 16px; }
+  .contact-form-section .contact-form { padding: 24px 16px; }
+
+  /* About Page */
+  .about-stats { padding: 48px 16px; }
+  .about-story { padding: 48px 16px; }
+  .about-values { padding: 48px 16px; }
+  .value-card { padding: 28px 20px; }
+  .about-certifications { padding: 48px 16px; }
+  .certification-item { padding: 24px 16px; }
+  .about-industries { padding: 48px 16px; }
+  .industries-tags { gap: 8px; }
+  .industry-tag { padding: 10px 16px; font-size: 13px; }
+
+  /* Category Page */
+  .category-hero { padding: 110px 16px 48px; }
+  .category-products { padding: 32px 16px; }
+  .category-specs-inline { flex-wrap: wrap; justify-content: center; }
+
+  /* Products Page */
+  .products-controls-section { padding: 12px 16px; }
+
+  /* Breadcrumb */
+  .breadcrumb { padding: 12px 16px; }
+  .breadcrumb-inner { font-size: 12px; }
+
+  /* Gallery Controls */
+  .gallery-controls { padding: 12px 16px; }
+
+  /* Lightbox */
+  .lightbox-info { padding: 20px 16px; }
+
+  /* Downloads */
+  .downloads-section { padding: 32px 16px 48px; }
+  .downloads-cta { flex-direction: column; text-align: center; padding: 24px 16px; gap: 20px; }
+
+  /* Footer */
+  .footer { padding: 48px 16px 24px; }
+
+  /* FAQ */
+  .faq-section { padding: 48px 16px; }
+
+  /* Quote Request */
+  .quote-section { padding: 48px 16px; }
+}
+
+/* ── Extra small screens (400px) ── */
+@media (max-width: 400px) {
+  .page-hero { padding: 100px 12px 40px; }
+  .product-hero-section { padding: 16px 12px 32px; }
+  .product-main-image-enhanced { min-height: 220px; padding: 16px; }
+  .product-title-enhanced { font-size: 20px; }
+  .product-hero-specs { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .hero-spec-card { padding: 10px 8px; }
+  .hero-spec-label { font-size: 9px; }
+  .hero-spec-value { font-size: 12px; }
+  .contact-form-section .contact-form { padding: 20px 12px; }
+  .category-hero { padding: 100px 12px 40px; }
+}

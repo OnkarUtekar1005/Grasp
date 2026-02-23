@@ -311,27 +311,421 @@ kill -9 <PID>
 
 ---
 
-## Production Deployment
+## VPS Deployment (Hostinger / Ubuntu)
 
-### Build Frontend
+This section covers deploying Grasp Electric on a Hostinger VPS (or any Ubuntu server).
+
+**Server Info:**
+- VPS IP: `72.61.243.83` (update with your IP)
+- Project path on server: `/var/www/Grasp`
+- Backend port: `5000`
+- OS: Ubuntu
+
+---
+
+### Connecting to Your VPS
+
+Open a terminal (Command Prompt, PowerShell, or any terminal app) and run:
 
 ```bash
-cd grasp-react
+ssh root@72.61.243.83
+```
+
+- It will ask for your **VPS password** (the one from Hostinger dashboard).
+- The password **won't show** as you type — that's normal. Just type it and press Enter.
+- If it's your first time connecting, type `yes` when it asks about fingerprint.
+
+---
+
+### First-Time Server Setup (Only Once)
+
+Run these commands one by one after connecting to VPS:
+
+#### 1. Update the server
+
+```bash
+apt update && apt upgrade -y
+```
+
+#### 2. Install Node.js 20
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
+```
+
+Verify:
+```bash
+node -v
+npm -v
+```
+
+#### 3. Install PM2 (keeps backend running 24/7)
+
+```bash
+npm install -g pm2
+```
+
+#### 4. Install Nginx (serves the website)
+
+```bash
+apt install -y nginx
+systemctl enable nginx
+systemctl start nginx
+```
+
+#### 5. Install PostgreSQL
+
+```bash
+apt install -y postgresql postgresql-contrib
+systemctl enable postgresql
+systemctl start postgresql
+```
+
+#### 6. Create the database
+
+```bash
+sudo -u postgres psql
+```
+
+Inside the PostgreSQL prompt:
+```sql
+CREATE DATABASE grasp_electric;
+CREATE USER graspuser WITH PASSWORD 'your_secure_password_here';
+GRANT ALL PRIVILEGES ON DATABASE grasp_electric TO graspuser;
+\q
+```
+
+---
+
+### Deploying the Project (First Time)
+
+#### 1. Upload project to VPS
+
+From your **local machine** (not VPS), run:
+
+```bash
+scp -r /path/to/Grasp root@72.61.243.83:/var/www/
+```
+
+Or use Git on the VPS:
+```bash
+cd /var/www
+git clone <your-repo-url> Grasp
+```
+
+#### 2. Set up the backend
+
+```bash
+cd /var/www/Grasp/grasp-backend
+npm install
+```
+
+#### 3. Configure backend environment
+
+```bash
+nano .env
+```
+
+Update these values for production:
+```env
+PORT=5000
+NODE_ENV=production
+DATABASE_URL="postgresql://graspuser:your_secure_password_here@localhost:5432/grasp_electric"
+JWT_SECRET=change-this-to-a-long-random-string-at-least-32-chars
+CORS_ORIGIN=https://yourdomain.com
+UPLOAD_DIR=./uploads
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM="Grasp Electric <noreply@graspelectric.com>"
+ADMIN_EMAILS=your-email@example.com
+```
+
+Save: press `Ctrl + X`, then `Y`, then `Enter`.
+
+#### 4. Initialize the database
+
+```bash
+npx prisma generate
+npx prisma db push
+npm run db:seed
+```
+
+#### 5. Create uploads directory
+
+```bash
+mkdir -p /var/www/Grasp/grasp-backend/uploads
+```
+
+#### 6. Build the frontend
+
+```bash
+cd /var/www/Grasp/grasp-react
+npm install
+```
+
+Edit the `.env` for production:
+```bash
+nano .env
+```
+
+Set:
+```env
+VITE_API_URL=/api/v1
+VITE_BACKEND_URL=
+```
+
+Save and build:
+```bash
 npm run build
 ```
 
-Output in `dist/` folder - deploy to any static host (Nginx, Vercel, Netlify).
+This creates a `dist/` folder with the production files.
 
-### Backend Deployment
+#### 7. Configure Nginx
 
-1. Set `NODE_ENV=production` in `.env`
-2. Use PM2 for process management:
-   ```bash
-   npm install -g pm2
-   pm2 start src/index.js --name grasp-backend
-   ```
-3. Set up Nginx as reverse proxy
-4. Configure SSL with Let's Encrypt
+```bash
+nano /etc/nginx/sites-available/grasp
+```
+
+Paste this config (replace `yourdomain.com` with your actual domain or IP):
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com 72.61.243.83;
+
+    # Frontend - serve the built React app
+    root /var/www/Grasp/grasp-react/dist;
+    index index.html;
+
+    # API - forward to backend
+    location /api/v1 {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        client_max_body_size 10M;
+    }
+
+    # Uploaded files
+    location /uploads {
+        proxy_pass http://localhost:5000/uploads;
+    }
+
+    # React Router - all other routes serve index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+Save, then enable the site:
+```bash
+ln -s /etc/nginx/sites-available/grasp /etc/nginx/sites-enabled/
+rm /etc/nginx/sites-enabled/default
+nginx -t
+systemctl restart nginx
+```
+
+#### 8. Start the backend with PM2
+
+```bash
+cd /var/www/Grasp/grasp-backend
+pm2 start src/index.js --name grasp-backend
+pm2 save
+pm2 startup
+```
+
+The `pm2 startup` command will print a command — **copy and run it**. This makes PM2 auto-start after server reboots.
+
+#### 9. Verify everything works
+
+```bash
+curl http://localhost:5000/api/v1/categories
+```
+
+If you get JSON back, the backend is running. Visit `http://72.61.243.83` in your browser to see the site.
+
+---
+
+### Day-to-Day Commands (Cheat Sheet)
+
+#### Connect to VPS
+```bash
+ssh root@72.61.243.83
+```
+
+#### Restart backend
+```bash
+pm2 restart grasp-backend
+```
+
+#### Stop backend
+```bash
+pm2 stop grasp-backend
+```
+
+#### View backend logs (live)
+```bash
+pm2 logs grasp-backend
+```
+
+#### View last 50 lines of logs
+```bash
+pm2 logs grasp-backend --lines 50
+```
+
+#### Check backend status
+```bash
+pm2 list
+```
+
+#### Restart Nginx
+```bash
+sudo systemctl restart nginx
+```
+
+#### Restart PostgreSQL
+```bash
+sudo systemctl restart postgresql
+```
+
+#### Test if backend is responding
+```bash
+curl http://localhost:5000/api/v1/categories
+```
+
+---
+
+### Updating the Site (After Code Changes)
+
+#### 1. Connect to VPS
+```bash
+ssh root@72.61.243.83
+```
+
+#### 2. Pull latest code
+```bash
+cd /var/www/Grasp
+git pull
+```
+
+#### 3. Update backend (if backend code changed)
+```bash
+cd /var/www/Grasp/grasp-backend
+npm install
+npx prisma generate
+npx prisma db push
+pm2 restart grasp-backend
+```
+
+#### 4. Update frontend (if frontend code changed)
+```bash
+cd /var/www/Grasp/grasp-react
+npm install
+npm run build
+```
+
+No need to restart Nginx — it serves the new files automatically.
+
+---
+
+### Troubleshooting on VPS
+
+#### Backend won't start
+```bash
+# Check logs for the error
+pm2 logs grasp-backend --lines 50
+
+# Check if PostgreSQL is running
+systemctl status postgresql
+
+# Check if port 5000 is in use
+lsof -i :5000
+```
+
+#### 502 Bad Gateway
+This means Nginx can't reach the backend. Fix:
+```bash
+# Check if backend is running
+pm2 list
+
+# If stopped/errored, restart it
+pm2 restart grasp-backend
+
+# If not in the list at all, start it
+cd /var/www/Grasp/grasp-backend
+pm2 start src/index.js --name grasp-backend
+```
+
+#### Website not loading at all
+```bash
+# Check Nginx status
+systemctl status nginx
+
+# Check Nginx config for errors
+nginx -t
+
+# Restart Nginx
+systemctl restart nginx
+```
+
+#### Database connection error
+```bash
+# Check PostgreSQL is running
+systemctl status postgresql
+
+# Restart PostgreSQL
+systemctl restart postgresql
+
+# Test database connection
+sudo -u postgres psql -d grasp_electric -c "SELECT 1;"
+```
+
+#### Server rebooted and nothing works
+```bash
+# Start everything back up
+systemctl start postgresql
+systemctl start nginx
+pm2 resurrect
+```
+
+If `pm2 resurrect` doesn't work:
+```bash
+cd /var/www/Grasp/grasp-backend
+pm2 start src/index.js --name grasp-backend
+pm2 save
+```
+
+---
+
+### SSL Setup (HTTPS) - Optional but Recommended
+
+```bash
+apt install -y certbot python3-certbot-nginx
+certbot --nginx -d yourdomain.com
+```
+
+Follow the prompts. Certbot auto-renews the certificate.
+
+---
+
+### Default Admin Credentials
+
+```
+Email: admin@graspelectric.com
+Password: admin123
+```
+
+**Change this password immediately after first login!**
 
 ---
 

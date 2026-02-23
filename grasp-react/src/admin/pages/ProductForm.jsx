@@ -114,6 +114,10 @@ const ProductForm = () => {
     description: '',
     categories: [], // Changed from single category to array
     code: '',
+    dimensionLength: '',
+    dimensionWidth: '',
+    dimensionHeight: '',
+    tags: [], // Tags for filtering
     price: '',
     priceType: 'fixed', // 'fixed' or 'quote'
     inStock: true,
@@ -121,6 +125,9 @@ const ProductForm = () => {
     specs: [{ id: crypto.randomUUID(), key: '', value: '' }],
     features: [''],
   });
+
+  // Tag input state
+  const [tagInput, setTagInput] = useState('');
 
   // Image state
   const [images, setImages] = useState([]);
@@ -182,6 +189,10 @@ const ProductForm = () => {
             categories: productCategories,
             // Clear code when duplicating (user should enter new unique code)
             code: isDuplicating ? '' : (product.code || ''),
+            dimensionLength: product.dimensionLength || '',
+            dimensionWidth: product.dimensionWidth || '',
+            dimensionHeight: product.dimensionHeight || '',
+            tags: product.tags || [],
             price: product.price || '',
             priceType: product.price ? 'fixed' : 'quote',
             inStock: product.isActive !== false,
@@ -435,7 +446,7 @@ const ProductForm = () => {
     const newDocs = validFiles.map(file => ({
       file,
       name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension for display name
-      documentType: 'DATASHEET',
+      documentType: 'OTHER',
       fileSize: file.size,
     }));
 
@@ -454,9 +465,17 @@ const ProductForm = () => {
     setDocuments(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Remove existing document
-  const removeExistingDocument = (index) => {
-    setExistingDocuments(prev => prev.filter((_, i) => i !== index));
+  // Remove existing document - immediately delete from backend
+  const removeExistingDocument = async (index) => {
+    const doc = existingDocuments[index];
+    if (!doc?.id || !productId) return;
+
+    try {
+      await productAPI.deleteDocument(productId, doc.id);
+      setExistingDocuments(prev => prev.filter((_, i) => i !== index));
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+    }
   };
 
   // Category dropdown state
@@ -546,6 +565,10 @@ const ProductForm = () => {
       submitData.append('description', formData.description);
       submitData.append('categories', JSON.stringify(formData.categories)); // Send as JSON array
       submitData.append('code', formData.code);
+      submitData.append('dimensionLength', formData.dimensionLength);
+      submitData.append('dimensionWidth', formData.dimensionWidth);
+      submitData.append('dimensionHeight', formData.dimensionHeight);
+      submitData.append('tags', JSON.stringify(formData.tags)); // Send tags as JSON array
       submitData.append('price', formData.priceType === 'quote' ? '' : formData.price);
       submitData.append('priceType', formData.priceType);
       submitData.append('inStock', formData.inStock);
@@ -567,9 +590,6 @@ const ProductForm = () => {
       images.forEach((image) => {
         submitData.append('images', image);
       });
-
-      // Add existing documents to keep
-      submitData.append('existingDocuments', JSON.stringify(existingDocuments));
 
       // Add new documents with metadata
       documents.forEach((doc, index) => {
@@ -1060,6 +1080,116 @@ const ProductForm = () => {
                   )}
                 </div>
                 {errors.categories && <span className="error-message">{errors.categories}</span>}
+              </div>
+
+              <div className="form-group">
+                <label>Size (mm)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <input
+                      type="number"
+                      id="dimensionLength"
+                      name="dimensionLength"
+                      value={formData.dimensionLength}
+                      onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) handleChange(e); }}
+                      placeholder="Length"
+                      min="0"
+                      step="0.1"
+                    />
+                    <small>Length</small>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      id="dimensionWidth"
+                      name="dimensionWidth"
+                      value={formData.dimensionWidth}
+                      onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) handleChange(e); }}
+                      placeholder="Width"
+                      min="0"
+                      step="0.1"
+                    />
+                    <small>Width</small>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      id="dimensionHeight"
+                      name="dimensionHeight"
+                      value={formData.dimensionHeight}
+                      onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) handleChange(e); }}
+                      placeholder="Height"
+                      min="0"
+                      step="0.1"
+                    />
+                    <small>Height</small>
+                  </div>
+                </div>
+                <small>Used for filtering products by size</small>
+              </div>
+
+              <div className="form-group">
+                <label>Product Tags</label>
+                <div className="tags-input-container">
+                  {formData.tags.length > 0 && (
+                    <div className="tags-list">
+                      {formData.tags.map((tag, index) => (
+                        <span key={index} className="tag-item">
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                tags: prev.tags.filter((_, i) => i !== index)
+                              }));
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="tag-input-row">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && tagInput.trim()) {
+                          e.preventDefault();
+                          if (!formData.tags.includes(tagInput.trim())) {
+                            setFormData(prev => ({
+                              ...prev,
+                              tags: [...prev.tags, tagInput.trim()]
+                            }));
+                          }
+                          setTagInput('');
+                        }
+                      }}
+                      placeholder="Type a tag and press Enter"
+                    />
+                    <button
+                      type="button"
+                      className="btn-add-tag"
+                      onClick={() => {
+                        if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+                          setFormData(prev => ({
+                            ...prev,
+                            tags: [...prev.tags, tagInput.trim()]
+                          }));
+                          setTagInput('');
+                        }
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+                <small>Add tags for filtering (e.g., IP67, Waterproof, Industrial)</small>
               </div>
 
               <div className="form-group">

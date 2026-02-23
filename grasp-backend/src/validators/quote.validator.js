@@ -6,15 +6,15 @@ const submitQuoteSchema = {
     companyName: z.string().min(1, 'Company name is required').max(200),
     contactName: z.string().min(1, 'Contact name is required').max(100),
     email: z.string().email('Invalid email format'),
-    phone: z.string().max(50).optional(),
-    message: z.string().optional(),
+    phone: z.string().max(50).nullish(),
+    message: z.string().nullish(),
     items: z
       .array(
         z.object({
           productId: z.string().uuid('Invalid product ID'),
-          variantId: z.string().uuid('Invalid variant ID').optional(),
-          quantity: z.number().int().min(1, 'Quantity must be at least 1'),
-          notes: z.string().optional(),
+          variantId: z.string().uuid('Invalid variant ID').nullish(),
+          quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1'),
+          notes: z.string().nullish(),
         })
       )
       .min(1, 'At least one item is required'),

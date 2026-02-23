@@ -18,7 +18,15 @@
       "WebFetch(domain:vaayura.com)",
       "Bash(node prisma/seed-products.js:*)",
       "Bash(git checkout:*)",
-      "WebFetch(domain:www.vaayura.com)"
+      "WebFetch(domain:www.vaayura.com)",
+      "Bash(node -e:*)",
+      "Bash(npx vite build)",
+      "Bash(npx vite:*)",
+      "Bash(timeout:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(git add:*)",
+      "Bash(git stash:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

@@ -84,6 +84,26 @@ async function submit(req, res, next) {
       },
     });
 
+    // Build items summary for inquiry message
+    const itemsSummary = quote.items
+      .map((item) => `- ${item.product?.name || 'Product'} (Qty: ${item.quantity})${item.notes ? ` — ${item.notes}` : ''}`)
+      .join('\n');
+
+    const inquiryMessage = `Quote Request: ${requestNumber}\n\nProducts:\n${itemsSummary}${message ? `\n\nAdditional Message:\n${message}` : ''}`;
+
+    // Also create an inquiry so it shows in admin panel
+    const inquiry = await prisma.inquiry.create({
+      data: {
+        inquiryType: 'GENERAL',
+        companyName,
+        contactName,
+        email,
+        phone,
+        subject: `Quote Request: ${requestNumber}`,
+        message: inquiryMessage,
+      },
+    });
+
     // Send email notification to admins
     emailService.notifyNewQuoteRequest(quote).catch((err) => {
       console.error('Failed to send quote notification:', err);
