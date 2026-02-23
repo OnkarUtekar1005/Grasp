@@ -1342,6 +1342,7 @@ const Products = () => {
                 <button className="btn-secondary" onClick={clearAllFilters}>Clear All Filters</button>
               </div>
             ) : (
+              <>
               <div ref={productsGridRef} className={`products-grid-container ${viewMode}`}>
                 {viewMode === 'grid' ? (
                   visibleProducts.map((product) => {
@@ -1447,6 +1448,7 @@ const Products = () => {
                   </button>
                 </div>
               )}
+              </>
             )}
           </div>
         </div>
