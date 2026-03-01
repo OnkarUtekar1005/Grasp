@@ -386,7 +386,7 @@ const Products = () => {
     const fetchData = async () => {
       try {
         const [productsData, categoriesData] = await Promise.all([
-          productAPI.getAll(),
+          productAPI.getAll({ limit: 1000 }),
           categoryAPI.getAll()
         ]);
         setProducts(productsData.data || []);

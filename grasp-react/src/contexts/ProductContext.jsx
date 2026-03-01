@@ -20,7 +20,7 @@ export const ProductProvider = ({ children }) => {
     try {
       setLoading(true);
       const [productsRes, categoriesRes] = await Promise.all([
-        productAPI.getAll(),
+        productAPI.getAll({ limit: 1000 }),
         categoryAPI.getAll()
       ]);
       setProducts(productsRes.data || []);
