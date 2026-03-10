@@ -1030,6 +1030,34 @@ async function removeDocument(req, res, next) {
   }
 }
 
+async function updateDocument(req, res, next) {
+  try {
+    const { id, docId } = req.params;
+    const { documentType, name } = req.body;
+
+    const existing = await prisma.productDocument.findFirst({
+      where: { id: docId, productId: id },
+    });
+
+    if (!existing) {
+      return response.notFound(res, 'Document not found');
+    }
+
+    const updateData = {};
+    if (documentType !== undefined) updateData.documentType = documentType;
+    if (name !== undefined) updateData.name = name;
+
+    const updated = await prisma.productDocument.update({
+      where: { id: docId },
+      data: updateData,
+    });
+
+    response.success(res, updated);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getAll,
   getFeatured,
@@ -1046,5 +1074,6 @@ module.exports = {
   updateImage,
   removeImage,
   uploadDocument,
+  updateDocument,
   removeDocument,
 };

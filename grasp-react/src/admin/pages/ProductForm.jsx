@@ -486,6 +486,20 @@ const ProductForm = () => {
     }
   };
 
+  const updateExistingDocument = async (index, field, value) => {
+    const doc = existingDocuments[index];
+    if (!doc?.id || !productId) return;
+
+    // Update locally immediately
+    setExistingDocuments(prev => prev.map((d, i) => i === index ? { ...d, [field]: value } : d));
+
+    try {
+      await productAPI.updateDocument(productId, doc.id, { [field]: value });
+    } catch (error) {
+      console.error('Failed to update document:', error);
+    }
+  };
+
   // Category dropdown state
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
@@ -951,7 +965,15 @@ const ProductForm = () => {
                       </div>
                       <div className="document-details">
                         <span className="document-name">{doc.name}</span>
-                        <span className="document-type-badge">{doc.documentType}</span>
+                        <select
+                          value={doc.documentType}
+                          onChange={(e) => updateExistingDocument(index, 'documentType', e.target.value)}
+                          className="document-type-select"
+                        >
+                          {DOCUMENT_TYPES.map(type => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                          ))}
+                        </select>
                         {doc.fileSizeBytes && (
                           <span className="document-size">{(doc.fileSizeBytes / 1024 / 1024).toFixed(2)} MB</span>
                         )}

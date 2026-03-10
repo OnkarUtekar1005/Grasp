@@ -248,6 +248,14 @@ export const productAPI = {
       method: 'DELETE',
     });
   },
+
+  updateDocument: async (productId, docId, data) => {
+    return apiCall(`/products/${productId}/documents/${docId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // ============================================

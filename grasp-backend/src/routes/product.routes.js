@@ -59,6 +59,7 @@ router.post(
   uploadDocument.single('document'),
   productController.uploadDocument
 );
+router.patch('/:id/documents/:docId', authenticate, validate(documentIdSchema), productController.updateDocument);
 router.delete('/:id/documents/:docId', authenticate, validate(documentIdSchema), productController.removeDocument);
 
 module.exports = router;
