@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { productAPI, categoryAPI, BACKEND_URL } from '../../services';
+
+const generateId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? generateId()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
 import { useProducts } from '../../contexts';
 import {
   DndContext,
@@ -122,7 +130,7 @@ const ProductForm = () => {
     priceType: 'fixed', // 'fixed' or 'quote'
     inStock: true,
     featured: false,
-    specs: [{ id: crypto.randomUUID(), key: '', value: '' }],
+    specs: [{ id: generateId(), key: '', value: '' }],
     features: [''],
   });
 
@@ -163,12 +171,12 @@ const ProductForm = () => {
           // Extract specs as key-value objects
           const specs = product.dynamicSpecs?.length
             ? product.dynamicSpecs.map(s => ({
-                id: s.id || crypto.randomUUID(),
+                id: s.id || generateId(),
                 // If key looks auto-generated (spec_0, spec_1), show empty for user to fill in
                 key: s.specKey?.startsWith('spec_') ? '' : (s.specKey || ''),
                 value: s.specValue || '',
               }))
-            : [{ id: crypto.randomUUID(), key: '', value: '' }];
+            : [{ id: generateId(), key: '', value: '' }];
           const features = product.features?.length
             ? product.features.map(f => f.featureText || f.featureValue || f.value || f)
             : [''];
@@ -314,7 +322,7 @@ const ProductForm = () => {
   const addSpec = () => {
     setFormData(prev => ({
       ...prev,
-      specs: [...prev.specs, { id: crypto.randomUUID(), key: '', value: '' }],
+      specs: [...prev.specs, { id: generateId(), key: '', value: '' }],
     }));
   };
 
