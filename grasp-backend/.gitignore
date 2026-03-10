@@ -18,6 +18,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# PDF cache
+.pdf-cache/
+
 # Prisma
 prisma/migrations/*
 !prisma/migrations/.gitkeep

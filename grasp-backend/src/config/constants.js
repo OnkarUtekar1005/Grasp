@@ -2,7 +2,7 @@ module.exports = {
   // Pagination defaults
   DEFAULT_PAGE: 1,
   DEFAULT_LIMIT: 20,
-  MAX_LIMIT: 100,
+  MAX_LIMIT: 200,
 
   // File upload
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],

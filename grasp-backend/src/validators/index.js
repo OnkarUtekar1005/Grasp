@@ -5,6 +5,7 @@ const productValidator = require('./product.validator');
 const quoteValidator = require('./quote.validator');
 const inquiryValidator = require('./inquiry.validator');
 const galleryValidator = require('./gallery.validator');
+const downloadValidator = require('./download.validator');
 
 module.exports = {
   ...authValidator,
@@ -14,4 +15,5 @@ module.exports = {
   ...quoteValidator,
   ...inquiryValidator,
   ...galleryValidator,
+  ...downloadValidator,
 };

@@ -4,7 +4,7 @@ import { ProtectedRoute, SmoothScroll } from './components';
 import { AdminLayout } from './layouts';
 import { Home, Products, ProductDetail, Gallery, About, Contact, QuoteRequest, Downloads } from './pages';
 import HomeElectrical from './pages/HomeElectrical';
-import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm, Inquiries, GalleryList, GalleryForm } from './admin/pages';
+import { Login, Dashboard, ProductsList, ProductForm, CategoriesList, CategoryForm, Inquiries, GalleryList, GalleryForm, DownloadsList, DownloadForm } from './admin/pages';
 import './styles/index.css';
 import './styles/mobile.css';
 
@@ -56,6 +56,9 @@ function App() {
               <Route path="gallery" element={<GalleryList />} />
               <Route path="gallery/new" element={<GalleryForm />} />
               <Route path="gallery/edit/:id" element={<GalleryForm />} />
+              <Route path="downloads" element={<DownloadsList />} />
+              <Route path="downloads/new" element={<DownloadForm />} />
+              <Route path="downloads/edit/:id" element={<DownloadForm />} />
               <Route path="inquiries" element={<Inquiries />} />
               <Route path="settings" element={<div className="admin-placeholder">Settings Page - Coming Soon</div>} />
             </Route>

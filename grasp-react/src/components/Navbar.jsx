@@ -1,15 +1,32 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/images/logo.png';
 
-const Navbar = ({ isVisible }) => {
+const Navbar = forwardRef(({ isVisible }, ref) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navRef = useRef(null);
 
   const isActive = (path) => location.pathname === path;
 
+  // Support prop-based visibility (other pages pass isVisible={true})
+  useEffect(() => {
+    if (isVisible !== undefined && navRef.current) {
+      navRef.current.classList.toggle('visible', isVisible);
+    }
+  }, [isVisible]);
+
+  // Support ref-based visibility (Home page uses imperative handle)
+  useImperativeHandle(ref, () => ({
+    setVisible(visible) {
+      if (navRef.current) {
+        navRef.current.classList.toggle('visible', visible);
+      }
+    }
+  }));
+
   return (
-    <nav className={`nav ${isVisible ? 'visible' : ''}`}>
+    <nav className="nav" ref={navRef}>
       <div className="nav-inner">
         <Link to="/" className="nav-logo">
           <img src={logo} alt="Grasp Electric" />
@@ -40,6 +57,8 @@ const Navbar = ({ isVisible }) => {
       </div>
     </nav>
   );
-};
+});
+
+Navbar.displayName = 'Navbar';
 
 export default Navbar;

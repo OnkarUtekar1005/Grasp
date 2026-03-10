@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { productAPI, BACKEND_URL } from '../services';
 
@@ -13,18 +13,33 @@ const fallbackItems = [
   { id: 2, title: 'Junction Box', image: image3, slug: null }
 ];
 
-const ProductShowcase = ({ isVisible }) => {
+const ProductShowcase = forwardRef((props, ref) => {
   const [showcaseItems, setShowcaseItems] = useState(fallbackItems);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const carouselRef = useRef(null);
+  const sectionRef = useRef(null);
   const autoPlayRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
+  const isVisibleRef = useRef(false);
 
   // Touch swipe support
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+
+  useImperativeHandle(ref, () => ({
+    classList: {
+      toggle(className, force) {
+        if (sectionRef.current) {
+          sectionRef.current.classList.toggle(className, force);
+          if (className === 'visible') {
+            isVisibleRef.current = force;
+          }
+        }
+      }
+    }
+  }));
 
   // Check if mobile
   useEffect(() => {
@@ -133,7 +148,7 @@ const ProductShowcase = ({ isVisible }) => {
       // Resume autoplay 500ms after scroll stops
       scrollTimeoutRef.current = setTimeout(() => {
         setIsScrolling(false);
-        if (isVisible) {
+        if (isVisibleRef.current) {
           startAutoPlay();
         }
       }, 500);
@@ -147,24 +162,24 @@ const ProductShowcase = ({ isVisible }) => {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [isVisible, startAutoPlay, stopAutoPlay]);
+  }, [startAutoPlay, stopAutoPlay]);
 
   // Start autoplay when visible and not scrolling
   useEffect(() => {
-    if (itemCount > 0 && isVisible && !isScrolling) {
+    if (itemCount > 0 && isVisibleRef.current && !isScrolling) {
       startAutoPlay();
     } else {
       stopAutoPlay();
     }
     return () => stopAutoPlay();
-  }, [itemCount, isVisible, isScrolling, startAutoPlay, stopAutoPlay]);
+  }, [itemCount, isScrolling, startAutoPlay, stopAutoPlay]);
 
   if (itemCount === 0) {
     return null;
   }
 
   return (
-    <div className={`showcase-section-hero ${isVisible ? 'visible' : ''}`}>
+    <div className="showcase-section-hero" ref={sectionRef}>
       <div className="showcase-hero-inner">
         <div
           className="showcase-hero-carousel"
@@ -222,6 +237,8 @@ const ProductShowcase = ({ isVisible }) => {
       </div>
     </div>
   );
-};
+});
+
+ProductShowcase.displayName = 'ProductShowcase';
 
 export default ProductShowcase;

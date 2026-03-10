@@ -7,3 +7,5 @@ export { default as CategoryForm } from './CategoryForm';
 export { default as Inquiries } from './Inquiries';
 export { default as GalleryList } from './GalleryList';
 export { default as GalleryForm } from './GalleryForm';
+export { default as DownloadsList } from './DownloadsList';
+export { default as DownloadForm } from './DownloadForm';

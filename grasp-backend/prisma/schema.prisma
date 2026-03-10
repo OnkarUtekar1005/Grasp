@@ -363,6 +363,46 @@ model GalleryImageProduct {
   @@map("gallery_image_products")
 }
 
+// ==================== DOWNLOADS ====================
+
+model DownloadCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  icon        String   @default("catalog") // catalog, datasheet, certificate, manual
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  downloads Download[]
+
+  @@index([sortOrder])
+  @@index([isActive])
+  @@map("download_categories")
+}
+
+model Download {
+  id            String   @id @default(uuid())
+  categoryId    String   @map("category_id")
+  name          String
+  description   String?
+  documentUrl   String   @map("document_url")
+  fileSizeBytes Int?     @map("file_size_bytes")
+  sortOrder     Int      @default(0) @map("sort_order")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  category DownloadCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([sortOrder])
+  @@index([isActive])
+  @@map("downloads")
+}
+
 // ==================== SETTINGS ====================
 
 model Setting {

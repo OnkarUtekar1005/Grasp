@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // Load logo as base64 for embedding in PDF
 const logoPath = path.join(__dirname, '../assets/logo.png');
@@ -10,6 +11,160 @@ try {
   logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
 } catch (err) {
   console.warn('Could not load logo for PDF:', err.message);
+}
+
+// ============================================================
+// Puppeteer Resource Bounding: Singleton + Semaphore + Cache
+// ============================================================
+
+const MAX_CONCURRENT = 2;          // Max simultaneous PDF generations
+const BROWSER_IDLE_TIMEOUT = 60000; // Close browser after 60s idle
+const CACHE_DIR = path.join(__dirname, '../../.pdf-cache');
+const CACHE_TTL = 30 * 60 * 1000;  // 30 minutes
+
+// Ensure cache directory exists
+if (!fs.existsSync(CACHE_DIR)) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
+
+// --- Singleton Browser ---
+let browserInstance = null;
+let browserIdleTimer = null;
+let activePagesCount = 0;
+
+async function getBrowser() {
+  if (browserInstance && browserInstance.connected) {
+    clearTimeout(browserIdleTimer);
+    return browserInstance;
+  }
+
+  browserInstance = await puppeteer.launch({
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-default-apps',
+      '--disable-translate',
+      '--single-process',
+      '--js-flags=--max-old-space-size=256',
+    ]
+  });
+
+  browserInstance.on('disconnected', () => {
+    browserInstance = null;
+    activePagesCount = 0;
+  });
+
+  return browserInstance;
+}
+
+function scheduleBrowserClose() {
+  clearTimeout(browserIdleTimer);
+  if (activePagesCount <= 0 && browserInstance) {
+    browserIdleTimer = setTimeout(async () => {
+      if (activePagesCount <= 0 && browserInstance && browserInstance.connected) {
+        await browserInstance.close().catch(() => {});
+        browserInstance = null;
+      }
+    }, BROWSER_IDLE_TIMEOUT);
+  }
+}
+
+// --- Concurrency Semaphore ---
+let running = 0;
+const queue = [];
+
+function acquireSemaphore() {
+  return new Promise((resolve) => {
+    if (running < MAX_CONCURRENT) {
+      running++;
+      resolve();
+    } else {
+      queue.push(resolve);
+    }
+  });
+}
+
+function releaseSemaphore() {
+  if (queue.length > 0) {
+    const next = queue.shift();
+    next();
+  } else {
+    running--;
+  }
+}
+
+// --- PDF Cache ---
+function getCacheKey(identifier) {
+  return crypto.createHash('md5').update(identifier).digest('hex');
+}
+
+function getCachedPDF(cacheKey) {
+  const filePath = path.join(CACHE_DIR, `${cacheKey}.pdf`);
+  const metaPath = path.join(CACHE_DIR, `${cacheKey}.json`);
+
+  if (!fs.existsSync(filePath) || !fs.existsSync(metaPath)) return null;
+
+  try {
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+    if (Date.now() - meta.createdAt > CACHE_TTL) {
+      // Expired — clean up
+      fs.unlinkSync(filePath);
+      fs.unlinkSync(metaPath);
+      return null;
+    }
+    return fs.readFileSync(filePath);
+  } catch {
+    return null;
+  }
+}
+
+function cachePDF(cacheKey, pdfBuffer) {
+  const filePath = path.join(CACHE_DIR, `${cacheKey}.pdf`);
+  const metaPath = path.join(CACHE_DIR, `${cacheKey}.json`);
+  fs.writeFileSync(filePath, pdfBuffer);
+  fs.writeFileSync(metaPath, JSON.stringify({ createdAt: Date.now() }));
+}
+
+// --- Bounded PDF generation wrapper ---
+async function generatePDFBounded(htmlContent, options = {}) {
+  await acquireSemaphore();
+  let page = null;
+
+  try {
+    const browser = await getBrowser();
+    activePagesCount++;
+
+    page = await browser.newPage();
+
+    // Limit page memory
+    await page.setCacheEnabled(false);
+
+    await page.setContent(htmlContent, {
+      waitUntil: options.waitUntil || 'networkidle0',
+      timeout: options.timeout || 30000,
+    });
+
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+      preferCSSPageSize: true,
+    });
+
+    return pdf;
+  } finally {
+    if (page) {
+      await page.close().catch(() => {});
+    }
+    activePagesCount--;
+    scheduleBrowserClose();
+    releaseSemaphore();
+  }
 }
 
 /**
@@ -453,56 +608,22 @@ const generateProductHTML = (product, baseUrl) => {
 };
 
 /**
- * Generate PDF for a product
+ * Generate PDF for a product (bounded: singleton browser + semaphore + cache)
  * @param {Object} product - Product object with all relations
  * @param {string} baseUrl - Base URL for images
  * @returns {Buffer} PDF buffer
  */
 const generateProductPDF = async (product, baseUrl) => {
-  let browser = null;
+  // Check cache first
+  const cacheKey = getCacheKey(`product:${product.slug}:${product.updatedAt}`);
+  const cached = getCachedPDF(cacheKey);
+  if (cached) return cached;
 
-  try {
-    // Launch headless browser
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu'
-      ]
-    });
+  const html = generateProductHTML(product, baseUrl);
+  const pdf = await generatePDFBounded(html, { timeout: 30000 });
 
-    const page = await browser.newPage();
-
-    // Generate HTML from template with product data
-    const html = generateProductHTML(product, baseUrl);
-
-    // Set content and wait for images to load
-    await page.setContent(html, {
-      waitUntil: 'networkidle0',
-      timeout: 30000
-    });
-
-    // Generate PDF
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '0mm',
-        right: '0mm',
-        bottom: '0mm',
-        left: '0mm'
-      },
-      preferCSSPageSize: true
-    });
-
-    return pdf;
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
-  }
+  cachePDF(cacheKey, pdf);
+  return pdf;
 };
 
 /**
@@ -640,53 +761,55 @@ const generateCatalogHTML = (products, baseUrl) => {
 };
 
 /**
- * Generate catalog PDF with all products
+ * Generate catalog PDF with all products (bounded: singleton browser + semaphore + cache)
  */
 const generateCatalogPDF = async (products, baseUrl) => {
-  let browser = null;
+  // Cache key based on product count + latest updatedAt
+  const latestUpdate = products.reduce((max, p) => {
+    const t = new Date(p.updatedAt).getTime();
+    return t > max ? t : max;
+  }, 0);
+  const cacheKey = getCacheKey(`catalog:${products.length}:${latestUpdate}`);
+  const cached = getCachedPDF(cacheKey);
+  if (cached) return cached;
 
+  const html = generateCatalogHTML(products, baseUrl);
+  const pdf = await generatePDFBounded(html, { timeout: 60000 });
+
+  cachePDF(cacheKey, pdf);
+  return pdf;
+};
+
+/**
+ * Clear all cached PDFs (call after product updates)
+ */
+const clearPDFCache = () => {
   try {
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu'
-      ]
-    });
-
-    const page = await browser.newPage();
-    const html = generateCatalogHTML(products, baseUrl);
-
-    await page.setContent(html, {
-      waitUntil: 'networkidle0',
-      timeout: 60000
-    });
-
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '0mm',
-        right: '0mm',
-        bottom: '0mm',
-        left: '0mm'
-      },
-      preferCSSPageSize: true
-    });
-
-    return pdf;
-  } finally {
-    if (browser) {
-      await browser.close();
+    const files = fs.readdirSync(CACHE_DIR);
+    for (const file of files) {
+      fs.unlinkSync(path.join(CACHE_DIR, file));
     }
+  } catch {
+    // Ignore errors during cache clearing
   }
 };
+
+/**
+ * Get current Puppeteer resource stats (for monitoring)
+ */
+const getPDFStats = () => ({
+  browserAlive: !!(browserInstance && browserInstance.connected),
+  activePages: activePagesCount,
+  queuedRequests: queue.length,
+  concurrentRunning: running,
+  maxConcurrent: MAX_CONCURRENT,
+});
 
 module.exports = {
   generateProductPDF,
   generateProductHTML,
   generateCatalogPDF,
-  generateCatalogHTML
+  generateCatalogHTML,
+  clearPDFCache,
+  getPDFStats,
 };

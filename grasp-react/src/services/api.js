@@ -561,6 +561,96 @@ export const galleryAPI = {
   },
 };
 
+// ============================================
+// DOWNLOAD API SERVICES
+// ============================================
+
+export const downloadAPI = {
+  /**
+   * Get all downloads grouped by category (public)
+   */
+  getAll: async () => {
+    return apiCall('/downloads');
+  },
+
+  /**
+   * Get all downloads for admin (includes inactive)
+   */
+  adminGetAll: async () => {
+    return apiCall('/downloads/admin/list');
+  },
+
+  /**
+   * Get single download by ID (admin)
+   */
+  getById: async (id) => {
+    return apiCall(`/downloads/admin/${id}`);
+  },
+
+  /**
+   * Get all download categories for admin
+   */
+  adminGetCategories: async () => {
+    return apiCall('/downloads/admin/categories');
+  },
+
+  /**
+   * Create download category (Admin only)
+   */
+  createCategory: async (data) => {
+    return apiCall('/downloads/admin/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Update download category (Admin only)
+   */
+  updateCategory: async (id, data) => {
+    return apiCall(`/downloads/admin/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete download category (Admin only)
+   */
+  deleteCategory: async (id) => {
+    return apiCall(`/downloads/admin/categories/${id}`, { method: 'DELETE' });
+  },
+
+  /**
+   * Create download (Admin only)
+   */
+  create: async (data) => {
+    const body = data instanceof FormData ? data : JSON.stringify(data);
+    return apiCall('/downloads', {
+      method: 'POST',
+      body,
+    });
+  },
+
+  /**
+   * Update download (Admin only)
+   */
+  update: async (id, data) => {
+    const body = data instanceof FormData ? data : JSON.stringify(data);
+    return apiCall(`/downloads/${id}`, {
+      method: 'PUT',
+      body,
+    });
+  },
+
+  /**
+   * Delete download (Admin only)
+   */
+  delete: async (id) => {
+    return apiCall(`/downloads/${id}`, { method: 'DELETE' });
+  },
+};
+
 // Export all APIs
 export default {
   auth: authAPI,
@@ -571,4 +661,5 @@ export default {
   admin: adminAPI,
   dashboard: dashboardAPI,
   gallery: galleryAPI,
+  download: downloadAPI,
 };

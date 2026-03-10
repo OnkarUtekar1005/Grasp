@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useProducts } from '../../contexts';
 import { BACKEND_URL } from '../../services/api';
 
+const ITEMS_PER_PAGE = 20;
+
 const ProductsList = () => {
   const { products, categories, deleteProduct } = useProducts();
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,6 +14,7 @@ const ProductsList = () => {
   const [featuredFilter, setFeaturedFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ show: false, product: null });
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -31,16 +34,67 @@ const ProductsList = () => {
     return matchesSearch && matchesCategory && matchesStock && matchesPrice && matchesFeatured;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedCategory('all');
     setStockFilter('all');
     setPriceFilter('all');
     setFeaturedFilter('all');
+    setCurrentPage(1);
   };
 
   const hasActiveFilters = selectedCategory !== 'all' || stockFilter !== 'all' ||
                            priceFilter !== 'all' || featuredFilter !== 'all' || searchTerm;
+
+  // Reset to page 1 when search/filters change
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleCategoryChange = (e) => {
+    setSelectedCategory(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleStockChange = (e) => {
+    setStockFilter(e.target.value);
+    setCurrentPage(1);
+  };
+  const handlePriceChange = (e) => {
+    setPriceFilter(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleFeaturedChange = (e) => {
+    setFeaturedFilter(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push('...');
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (end < totalPages) {
+      if (end < totalPages - 1) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const handleDeleteClick = (product) => {
     setDeleteModal({ show: true, product });
@@ -75,7 +129,7 @@ const ProductsList = () => {
               type="text"
               placeholder="Search products..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
             />
           </div>
           <div className="list-header-actions">
@@ -105,7 +159,7 @@ const ProductsList = () => {
               <label>Product Range</label>
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={handleCategoryChange}
               >
                 <option value="all">All Product Ranges</option>
                 {categories.map(cat => (
@@ -117,7 +171,7 @@ const ProductsList = () => {
               <label>Stock Status</label>
               <select
                 value={stockFilter}
-                onChange={(e) => setStockFilter(e.target.value)}
+                onChange={handleStockChange}
               >
                 <option value="all">All</option>
                 <option value="in-stock">In Stock</option>
@@ -128,7 +182,7 @@ const ProductsList = () => {
               <label>Price Type</label>
               <select
                 value={priceFilter}
-                onChange={(e) => setPriceFilter(e.target.value)}
+                onChange={handlePriceChange}
               >
                 <option value="all">All</option>
                 <option value="fixed">Fixed Price</option>
@@ -139,7 +193,7 @@ const ProductsList = () => {
               <label>Featured</label>
               <select
                 value={featuredFilter}
-                onChange={(e) => setFeaturedFilter(e.target.value)}
+                onChange={handleFeaturedChange}
               >
                 <option value="all">All</option>
                 <option value="featured">Featured</option>
@@ -156,7 +210,7 @@ const ProductsList = () => {
 
         {/* Results count */}
         <div className="list-results-info">
-          Showing {filteredProducts.length} of {products.length} products
+          Showing {Math.min(startIndex + 1, filteredProducts.length)}-{Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length} products
           {hasActiveFilters && <span className="filtered-indicator">(filtered)</span>}
         </div>
       </div>
@@ -175,7 +229,7 @@ const ProductsList = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map(product => {
+            {paginatedProducts.map(product => {
               const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
               const categoryName = product.category?.name || categories.find(c => c.id === product.categoryId)?.name || '-';
               return (
@@ -240,7 +294,7 @@ const ProductsList = () => {
 
       {/* Products Cards (Mobile) */}
       <div className="products-cards-container mobile-only">
-        {filteredProducts.map(product => {
+        {paginatedProducts.map(product => {
           const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
           const categoryName = product.category?.name || categories.find(c => c.id === product.categoryId)?.name || '-';
           return (
@@ -307,6 +361,47 @@ const ProductsList = () => {
           );
         })}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button
+            className="pagination-btn"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            Prev
+          </button>
+          <div className="pagination-pages">
+            {getPageNumbers().map((page, i) =>
+              page === '...' ? (
+                <span key={`ellipsis-${i}`} className="pagination-ellipsis">...</span>
+              ) : (
+                <button
+                  key={page}
+                  className={`pagination-page ${currentPage === page ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              )
+            )}
+          </div>
+          <button
+            className="pagination-btn"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {filteredProducts.length === 0 && (
         <div className="no-results">

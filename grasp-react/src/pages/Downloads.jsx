@@ -1,113 +1,45 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar, Footer } from '../components';
+import { downloadAPI, BACKEND_URL } from '../services';
 
 const Downloads = () => {
   const [activeCategory, setActiveCategory] = useState('all');
+  const [categories, setCategories] = useState([]);
+  const [allDownloads, setAllDownloads] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const categories = [
-    { id: 'all', name: 'All Downloads' },
-    { id: 'catalogs', name: 'Product Catalogs' },
-    { id: 'datasheets', name: 'Data Sheets' },
-    { id: 'certificates', name: 'Certificates' },
-    { id: 'manuals', name: 'Installation Manuals' }
-  ];
+  useEffect(() => {
+    fetchDownloads();
+  }, []);
 
-  const downloads = [
-    {
-      id: 1,
-      title: 'Complete Product Catalog 2024',
-      description: 'Comprehensive catalog featuring our entire range of industrial enclosures, junction boxes, and accessories.',
-      category: 'catalogs',
-      fileType: 'PDF',
-      fileSize: '12.5 MB',
-      icon: 'catalog'
-    },
-    {
-      id: 2,
-      title: 'Polycarbonate Enclosures Catalog',
-      description: 'Detailed specifications and dimensions for all polycarbonate enclosure models.',
-      category: 'catalogs',
-      fileType: 'PDF',
-      fileSize: '8.2 MB',
-      icon: 'catalog'
-    },
-    {
-      id: 3,
-      title: 'ABS Enclosures Catalog',
-      description: 'Complete range of ABS enclosures with technical specifications and ordering information.',
-      category: 'catalogs',
-      fileType: 'PDF',
-      fileSize: '6.8 MB',
-      icon: 'catalog'
-    },
-    {
-      id: 4,
-      title: 'Junction Box Technical Datasheet',
-      description: 'Technical specifications, IP ratings, and dimensional drawings for junction boxes.',
-      category: 'datasheets',
-      fileType: 'PDF',
-      fileSize: '2.1 MB',
-      icon: 'datasheet'
-    },
-    {
-      id: 5,
-      title: 'Terminal Enclosure Specifications',
-      description: 'Detailed technical data for terminal enclosures including material properties.',
-      category: 'datasheets',
-      fileType: 'PDF',
-      fileSize: '1.8 MB',
-      icon: 'datasheet'
-    },
-    {
-      id: 6,
-      title: 'IP Rating Test Certificates',
-      description: 'IP65, IP66, and IP67 ingress protection test certificates from accredited laboratories.',
-      category: 'certificates',
-      fileType: 'PDF',
-      fileSize: '3.5 MB',
-      icon: 'certificate'
-    },
-    {
-      id: 7,
-      title: 'UL Certification Documents',
-      description: 'UL94 flammability test certificates and compliance documentation.',
-      category: 'certificates',
-      fileType: 'PDF',
-      fileSize: '2.2 MB',
-      icon: 'certificate'
-    },
-    {
-      id: 8,
-      title: 'NABL Test Reports',
-      description: 'Laboratory test reports from NABL accredited testing facilities.',
-      category: 'certificates',
-      fileType: 'PDF',
-      fileSize: '4.1 MB',
-      icon: 'certificate'
-    },
-    {
-      id: 9,
-      title: 'Enclosure Installation Guide',
-      description: 'Step-by-step installation instructions for wall-mount and pole-mount enclosures.',
-      category: 'manuals',
-      fileType: 'PDF',
-      fileSize: '1.5 MB',
-      icon: 'manual'
-    },
-    {
-      id: 10,
-      title: 'Mounting Accessories Guide',
-      description: 'Installation guide for mounting plates, brackets, and DIN rails.',
-      category: 'manuals',
-      fileType: 'PDF',
-      fileSize: '980 KB',
-      icon: 'manual'
+  const fetchDownloads = async () => {
+    try {
+      setLoading(true);
+      const response = await downloadAPI.getAll();
+      const data = response.data || [];
+      setCategories(data);
+      // Flatten all downloads with category info
+      const flat = data.flatMap(cat =>
+        cat.downloads.map(d => ({ ...d, categorySlug: cat.slug, categoryIcon: cat.icon }))
+      );
+      setAllDownloads(flat);
+    } catch (error) {
+      console.error('Failed to fetch downloads:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const filteredDownloads = activeCategory === 'all'
-    ? downloads
-    : downloads.filter(d => d.category === activeCategory);
+    ? allDownloads
+    : allDownloads.filter(d => d.categorySlug === activeCategory);
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const getIcon = (type) => {
     switch (type) {
@@ -171,48 +103,80 @@ const Downloads = () => {
 
       <section className="downloads-section">
         <div className="downloads-inner">
-          {/* Category Filter */}
-          <div className="downloads-filter">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                className={`filter-btn ${activeCategory === cat.id ? 'active' : ''}`}
-                onClick={() => setActiveCategory(cat.id)}
-              >
-                {cat.name}
-                <span className="filter-count">
-                  {cat.id === 'all' ? downloads.length : downloads.filter(d => d.category === cat.id).length}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Downloads Grid */}
-          <div className="downloads-grid">
-            {filteredDownloads.map(item => (
-              <div key={item.id} className="download-card">
-                <div className="download-icon">
-                  {getIcon(item.icon)}
-                </div>
-                <div className="download-content">
-                  <h3 className="download-title">{item.title}</h3>
-                  <p className="download-desc">{item.description}</p>
-                  <div className="download-meta">
-                    <span className="file-type">{item.fileType}</span>
-                    <span className="file-size">{item.fileSize}</span>
-                  </div>
-                </div>
-                <button className="download-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  Download
+          {loading ? (
+            <div className="downloads-loading">
+              <div className="loading-spinner"></div>
+              <p>Loading downloads...</p>
+            </div>
+          ) : allDownloads.length === 0 ? (
+            <div className="downloads-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <p>No downloads available at this time.</p>
+            </div>
+          ) : (
+            <>
+              {/* Category Filter */}
+              <div className="downloads-filter">
+                <button
+                  className={`filter-btn ${activeCategory === 'all' ? 'active' : ''}`}
+                  onClick={() => setActiveCategory('all')}
+                >
+                  All Downloads
+                  <span className="filter-count">{allDownloads.length}</span>
                 </button>
+                {categories.map(cat => (
+                  <button
+                    key={cat.id}
+                    className={`filter-btn ${activeCategory === cat.slug ? 'active' : ''}`}
+                    onClick={() => setActiveCategory(cat.slug)}
+                  >
+                    {cat.name}
+                    <span className="filter-count">{cat.downloads.length}</span>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+
+              {/* Downloads Grid */}
+              <div className="downloads-grid">
+                {filteredDownloads.map(item => (
+                  <div key={item.id} className="download-card">
+                    <div className="download-icon">
+                      {getIcon(item.categoryIcon)}
+                    </div>
+                    <div className="download-content">
+                      <h3 className="download-title">{item.name}</h3>
+                      {item.description && (
+                        <p className="download-desc">{item.description}</p>
+                      )}
+                      <div className="download-meta">
+                        <span className="file-type">PDF</span>
+                        {item.fileSizeBytes && (
+                          <span className="file-size">{formatFileSize(item.fileSizeBytes)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <a
+                      href={item.documentUrl.startsWith('http') ? item.documentUrl : `${BACKEND_URL}${item.documentUrl}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="download-btn"
+                      download
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                      Download
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Request Custom Documents */}
           <div className="downloads-cta">
