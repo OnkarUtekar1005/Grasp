@@ -1634,7 +1634,7 @@ body { font-family: var(--font-body); background: var(--bg-primary); color: var(
 .related-products-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .related-product-card { background: #fff; border-radius: 16px; overflow: hidden; text-decoration: none; transition: all 0.3s; border: 1px solid var(--border-color); }
 .related-product-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); }
-.related-product-image { background: linear-gradient(135deg, #f8f8f8 0%, #eee 100%); padding: 32px; display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3; }
+.related-product-image { background: linear-gradient(135deg, #f8f8f8 0%, #eee 100%); padding: 24px; display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3; overflow: hidden; }
 .related-product-image svg { width: 60%; height: 60%; stroke: var(--text-tertiary); stroke-width: 0.5; fill: none; transition: stroke 0.3s; }
 .related-product-card:hover .related-product-image svg { stroke: var(--maroon); }
 .related-product-content { padding: 20px; }
@@ -1642,7 +1642,7 @@ body { font-family: var(--font-body); background: var(--bg-primary); color: var(
 .related-product-name { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 8px 0; line-height: 1.4; }
 .related-product-desc { font-size: 13px; color: var(--text-tertiary); line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .related-product-price { font-size: 16px; font-weight: 700; color: var(--text-primary); }
-.related-product-image img { width: 100%; height: 100%; object-fit: cover; }
+.related-product-image img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
 
 /* ============================================
    PRODUCT SPECIFICATIONS SECTION (2-Column Table)
