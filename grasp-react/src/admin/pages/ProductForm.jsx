@@ -99,6 +99,38 @@ const SortableSpecItem = ({ spec, index, onUpdate, onRemove, canRemove }) => {
   );
 };
 
+// Sortable Feature Item Component for drag-and-drop
+const SortableFeatureItem = ({ feature, index, onUpdate, onRemove, canRemove }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: feature.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  return (
+    <div ref={setNodeRef} style={style} className="array-field-item">
+      <button type="button" className="drag-handle" {...attributes} {...listeners}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="8" y1="6" x2="16" y2="6" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+          <line x1="8" y1="18" x2="16" y2="18" />
+        </svg>
+      </button>
+      <input
+        type="text"
+        value={feature.value}
+        onChange={(e) => onUpdate(index, e.target.value)}
+        placeholder="e.g., High impact resistance"
+      />
+      {canRemove && (
+        <button type="button" className="btn-icon danger" onClick={() => onRemove(index)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+};
+
 const ProductForm = () => {
   const navigate = useNavigate();
   const { id: slugOrId } = useParams();
@@ -131,7 +163,7 @@ const ProductForm = () => {
     inStock: true,
     featured: false,
     specs: [{ id: generateId(), key: '', value: '' }],
-    features: [''],
+    features: [{ id: generateId(), value: '' }],
   });
 
   // Tag input state
@@ -178,8 +210,8 @@ const ProductForm = () => {
               }))
             : [{ id: generateId(), key: '', value: '' }];
           const features = product.features?.length
-            ? product.features.map(f => f.featureText || f.featureValue || f.value || f)
-            : [''];
+            ? product.features.map(f => ({ id: generateId(), value: f.featureText || f.featureValue || f.value || f }))
+            : [{ id: generateId(), value: '' }];
           // Extract categories from junction table or fall back to single category
           let productCategories = [];
           if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
@@ -292,6 +324,33 @@ const ProductForm = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Handle drag end for features reordering
+  const handleFeaturesDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      setFormData(prev => {
+        const oldIndex = prev.features.findIndex(f => f.id === active.id);
+        const newIndex = prev.features.findIndex(f => f.id === over.id);
+        return { ...prev, features: arrayMove(prev.features, oldIndex, newIndex) };
+      });
+    }
+  };
+
+  const handleFeatureUpdate = (index, value) => {
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.map((f, i) => i === index ? { ...f, value } : f),
+    }));
+  };
+
+  const addFeature = () => {
+    setFormData(prev => ({ ...prev, features: [...prev.features, { id: generateId(), value: '' }] }));
+  };
+
+  const removeFeature = (index) => {
+    setFormData(prev => ({ ...prev, features: prev.features.filter((_, i) => i !== index) }));
+  };
 
   // Handle drag end for specs reordering
   const handleSpecsDragEnd = (event) => {
@@ -600,7 +659,7 @@ const ProductForm = () => {
       const filteredSpecs = formData.specs
         .filter(s => s.key.trim() && s.value.trim())
         .map(s => ({ key: s.key.trim(), value: s.value.trim() }));
-      const filteredFeatures = formData.features.filter(f => f.trim());
+      const filteredFeatures = formData.features.map(f => f.value).filter(v => v.trim());
       submitData.append('specs', JSON.stringify(filteredSpecs));
       submitData.append('features', JSON.stringify(filteredFeatures));
 
@@ -885,32 +944,24 @@ const ProductForm = () => {
               <p className="form-section-desc">List the main features and benefits</p>
 
               <div className="array-field">
-                {formData.features.map((feature, index) => (
-                  <div key={index} className="array-field-item">
-                    <input
-                      type="text"
-                      value={feature}
-                      onChange={(e) => handleArrayChange('features', index, e.target.value)}
-                      placeholder="e.g., High impact resistance"
-                    />
-                    {formData.features.length > 1 && (
-                      <button
-                        type="button"
-                        className="btn-icon danger"
-                        onClick={() => removeArrayItem('features', index)}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                ))}
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFeaturesDragEnd}>
+                  <SortableContext items={formData.features.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                    {formData.features.map((feature, index) => (
+                      <SortableFeatureItem
+                        key={feature.id}
+                        feature={feature}
+                        index={index}
+                        onUpdate={handleFeatureUpdate}
+                        onRemove={removeFeature}
+                        canRemove={formData.features.length > 1}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
                 <button
                   type="button"
                   className="btn-add-item"
-                  onClick={() => addArrayItem('features')}
+                  onClick={addFeature}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
