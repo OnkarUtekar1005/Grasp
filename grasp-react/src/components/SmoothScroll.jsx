@@ -16,6 +16,15 @@ const SmoothScroll = ({ children }) => {
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
+      prevent: (node) => {
+        // Don't hijack scroll for elements that have their own scrollable area
+        while (node && node !== document.body) {
+          if (node.classList && node.classList.contains('filter-sidebar-content')) return true;
+          if (node.hasAttribute && node.hasAttribute('data-lenis-prevent')) return true;
+          node = node.parentNode;
+        }
+        return false;
+      },
     });
 
     setLenis(lenisInstance);
