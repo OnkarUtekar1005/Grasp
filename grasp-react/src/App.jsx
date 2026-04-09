@@ -60,7 +60,6 @@ function App() {
               <Route path="downloads/new" element={<DownloadForm />} />
               <Route path="downloads/edit/:id" element={<DownloadForm />} />
               <Route path="inquiries" element={<Inquiries />} />
-              <Route path="settings" element={<div className="admin-placeholder">Settings Page - Coming Soon</div>} />
             </Route>
 
             {/* 404 Route */}

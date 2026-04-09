@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useProducts } from '../../contexts';
 import { BACKEND_URL } from '../../services/api';
 
@@ -7,14 +7,36 @@ const ITEMS_PER_PAGE = 20;
 
 const ProductsList = () => {
   const { products, categories, deleteProduct } = useProducts();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [stockFilter, setStockFilter] = useState('all');
-  const [priceFilter, setPriceFilter] = useState('all');
-  const [featuredFilter, setFeaturedFilter] = useState('all');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showFilters, setShowFilters] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ show: false, product: null });
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // All filter state lives in the URL — survives back/forward navigation
+  const searchTerm      = searchParams.get('q')        || '';
+  const selectedCategory = searchParams.get('cat')     || 'all';
+  const stockFilter     = searchParams.get('stock')    || 'all';
+  const priceFilter     = searchParams.get('price')    || 'all';
+  const featuredFilter  = searchParams.get('featured') || 'all';
+  const currentPage     = parseInt(searchParams.get('page') || '1', 10);
+
+  const setParam = useCallback((key, value, defaultVal = 'all') => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      if (value && value !== defaultVal) p.set(key, value);
+      else p.delete(key);
+      p.delete('page'); // reset to page 1 on any filter change
+      return p;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const setCurrentPage = useCallback((page) => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      if (page > 1) p.set('page', String(page));
+      else p.delete('page');
+      return p;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,38 +63,17 @@ const ProductsList = () => {
   const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
 
   const clearFilters = () => {
-    setSearchTerm('');
-    setSelectedCategory('all');
-    setStockFilter('all');
-    setPriceFilter('all');
-    setFeaturedFilter('all');
-    setCurrentPage(1);
+    setSearchParams({}, { replace: true });
   };
 
   const hasActiveFilters = selectedCategory !== 'all' || stockFilter !== 'all' ||
                            priceFilter !== 'all' || featuredFilter !== 'all' || searchTerm;
 
-  // Reset to page 1 when search/filters change
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-    setCurrentPage(1);
-  };
-  const handleCategoryChange = (e) => {
-    setSelectedCategory(e.target.value);
-    setCurrentPage(1);
-  };
-  const handleStockChange = (e) => {
-    setStockFilter(e.target.value);
-    setCurrentPage(1);
-  };
-  const handlePriceChange = (e) => {
-    setPriceFilter(e.target.value);
-    setCurrentPage(1);
-  };
-  const handleFeaturedChange = (e) => {
-    setFeaturedFilter(e.target.value);
-    setCurrentPage(1);
-  };
+  const handleSearchChange   = (e) => setParam('q',        e.target.value, '');
+  const handleCategoryChange = (e) => setParam('cat',      e.target.value);
+  const handleStockChange    = (e) => setParam('stock',    e.target.value);
+  const handlePriceChange    = (e) => setParam('price',    e.target.value);
+  const handleFeaturedChange = (e) => setParam('featured', e.target.value);
 
   const getPageNumbers = () => {
     const pages = [];
