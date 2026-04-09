@@ -158,7 +158,6 @@ const fuzzySearchProduct = (product, query, categories) => {
 const ARRAY_PARAMS = {
   categories: 'cat',
   products:   'prod',
-  rangeCodes: 'rc',
   rangeNames: 'rn',
   tags:       'tags',
   ipRatings:  'ip',
@@ -172,7 +171,6 @@ const paramsToFilters = (params) => ({
     ? params.get('cat').split(',')
     : (params.get('category') ? [params.get('category')] : []),
   products:      params.get('prod')  ? params.get('prod').split(',').map(Number) : [],
-  rangeCodes:    params.get('rc')    ? params.get('rc').split(',')   : [],
   rangeNames:    params.get('rn')    ? params.get('rn').split(',')   : [],
   tags:          params.get('tags')  ? params.get('tags').split(',') : [],
   ipRatings:     params.get('ip')    ? params.get('ip').split(',')   : [],
@@ -400,7 +398,6 @@ const Products = () => {
 
   // Extract unique filter options from products
   const filterOptions = useMemo(() => {
-    const rangeCodes = new Set();
     const rangeNames = new Set();
     const tags = new Set();
     const ipRatings = new Set();
@@ -411,10 +408,6 @@ const Products = () => {
 
     // Extract tags from products
     products.forEach(product => {
-      // Extract range code from product code
-      if (product.code) {
-        rangeCodes.add(product.code);
-      }
       // Extract range name from category names
       if (product.categories && Array.isArray(product.categories)) {
         product.categories.forEach(pc => {
@@ -453,7 +446,6 @@ const Products = () => {
     });
 
     return {
-      rangeCodes: Array.from(rangeCodes).sort(),
       rangeNames: Array.from(rangeNames).sort(),
       tags: Array.from(tags).sort(),
       ipRatings: Array.from(ipRatings).sort(),
@@ -534,13 +526,6 @@ const Products = () => {
     if (dim.maxW) result = result.filter(p => p.dimensionWidth && p.dimensionWidth <= parseFloat(dim.maxW));
     if (dim.minH) result = result.filter(p => p.dimensionHeight && p.dimensionHeight >= parseFloat(dim.minH));
     if (dim.maxH) result = result.filter(p => p.dimensionHeight && p.dimensionHeight <= parseFloat(dim.maxH));
-
-    // Range Code filter
-    if (filters.rangeCodes.length > 0) {
-      result = result.filter(product =>
-        product.code && filters.rangeCodes.includes(product.code)
-      );
-    }
 
     // Range Name filter
     if (filters.rangeNames.length > 0) {
@@ -676,7 +661,6 @@ const Products = () => {
     count += filters.categories.length;
     count += filters.products.length;
     if (Object.values(filters.dimensions).some(v => v !== '')) count++;
-    count += filters.rangeCodes.length;
     count += filters.rangeNames.length;
     count += filters.tags.length;
     count += filters.ipRatings.length;
@@ -1079,25 +1063,6 @@ const Products = () => {
                 </div>
               </FilterSection>
 
-              {/* Range Code */}
-              {filterOptions.rangeCodes.length > 0 && (
-                <FilterSection title="Range Code" defaultOpen={false}>
-                  <div className="filter-options">
-                    {filterOptions.rangeCodes.map(code => (
-                      <label key={code} className="filter-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={filters.rangeCodes.includes(code)}
-                          onChange={() => toggleFilter('rangeCodes', code)}
-                        />
-                        <span className="checkmark"></span>
-                        <span className="filter-label">{code}</span>
-                      </label>
-                    ))}
-                  </div>
-                </FilterSection>
-              )}
-
               {/* Range Name */}
               {filterOptions.rangeNames.length > 0 && (
                 <FilterSection title="Range Name" defaultOpen={false}>
@@ -1316,12 +1281,6 @@ const Products = () => {
                       }))}>×</button>
                     </span>
                   )}
-                  {filters.rangeCodes.map(code => (
-                    <span key={code} className="filter-tag">
-                      Code: {code}
-                      <button onClick={() => toggleFilter('rangeCodes', code)}>×</button>
-                    </span>
-                  ))}
                   {filters.rangeNames.map(name => (
                     <span key={name} className="filter-tag">
                       Range: {name}
