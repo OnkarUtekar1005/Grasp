@@ -2122,10 +2122,10 @@ body { font-family: var(--font-body); background: var(--bg-primary); color: var(
 
 /* Main Products Section */
 .products-main-section { background: #f5f5f5; min-height: calc(100vh - 300px); position: relative; }
-.products-main-inner { display: flex; gap: 32px; max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+.products-main-inner { display: flex; align-items: flex-start; gap: 32px; max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
 
 /* Filter Sidebar */
-.filter-sidebar { background: #fff; border: 1px solid var(--border-color); border-radius: 12px; width: 280px; flex-shrink: 0; position: sticky; top: 100px; height: calc(100vh - 120px); max-height: calc(100vh - 120px); overflow: hidden; display: flex; flex-direction: column; z-index: 10; }
+.filter-sidebar { background: #fff; border: 1px solid var(--border-color); border-radius: 12px; width: 280px; flex-shrink: 0; position: sticky; top: 100px; height: calc(100vh - 120px); max-height: calc(100vh - 120px); overflow: hidden; display: flex; flex-direction: column; z-index: 10; align-self: flex-start; }
 .filter-sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--border-color); background: #fafafa; border-radius: 12px 12px 0 0; flex-shrink: 0; }
 .filter-sidebar-header h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0; }
 .filter-header-actions { display: flex; align-items: center; gap: 12px; }
@@ -2133,7 +2133,7 @@ body { font-family: var(--font-body); background: var(--bg-primary); color: var(
 .clear-filters-btn:hover { text-decoration: underline; }
 .close-filters-btn { display: none; width: 32px; height: 32px; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; }
 .close-filters-btn svg { width: 20px; height: 20px; stroke: var(--text-secondary); }
-.filter-sidebar-content { padding: 0; flex: 1; min-height: 0; overflow-y: scroll; overscroll-behavior: contain; }
+.filter-sidebar-content { padding: 0; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .filter-sidebar-content::-webkit-scrollbar { width: 5px; }
 .filter-sidebar-content::-webkit-scrollbar-track { background: transparent; }
 .filter-sidebar-content::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }

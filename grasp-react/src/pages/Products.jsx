@@ -228,7 +228,6 @@ const Products = () => {
   const [showMoreProducts, setShowMoreProducts] = useState({});
   const [visibleCount, setVisibleCount] = useState(10);
   const productsGridRef = useRef(null);
-
   // Disable pointer events during scroll to prevent hover lag
   useEffect(() => {
     let scrollTimeout;
