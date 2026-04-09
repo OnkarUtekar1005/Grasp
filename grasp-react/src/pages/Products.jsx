@@ -153,6 +153,83 @@ const fuzzySearchProduct = (product, query, categories) => {
   return { match: hasMatch, score: bestScore };
 };
 
+// --- URL <-> Filter state helpers ---
+
+const ARRAY_PARAMS = {
+  categories: 'cat',
+  products:   'prod',
+  rangeCodes: 'rc',
+  rangeNames: 'rn',
+  tags:       'tags',
+  ipRatings:  'ip',
+  materials:  'mat',
+  mountingTypes: 'mt',
+};
+
+const paramsToFilters = (params) => ({
+  // support legacy ?category= links as well as the new ?cat=
+  categories: params.get('cat')
+    ? params.get('cat').split(',')
+    : (params.get('category') ? [params.get('category')] : []),
+  products:      params.get('prod')  ? params.get('prod').split(',').map(Number) : [],
+  rangeCodes:    params.get('rc')    ? params.get('rc').split(',')   : [],
+  rangeNames:    params.get('rn')    ? params.get('rn').split(',')   : [],
+  tags:          params.get('tags')  ? params.get('tags').split(',') : [],
+  ipRatings:     params.get('ip')    ? params.get('ip').split(',')   : [],
+  materials:     params.get('mat')   ? params.get('mat').split(',')  : [],
+  mountingTypes: params.get('mt')    ? params.get('mt').split(',')   : [],
+  dimensions: {
+    minL: params.get('dimMinL') || '',
+    maxL: params.get('dimMaxL') || '',
+    minW: params.get('dimMinW') || '',
+    maxW: params.get('dimMaxW') || '',
+    minH: params.get('dimMinH') || '',
+    maxH: params.get('dimMaxH') || '',
+  },
+  priceRange: {
+    min: params.get('priceMin') || '',
+    max: params.get('priceMax') || '',
+  },
+  inStockOnly:  params.get('inStock')  === 'true',
+  featuredOnly: params.get('featured') === 'true',
+});
+
+const filtersToParams = (filters, existing) => {
+  const p = new URLSearchParams(existing);
+
+  // Array filters
+  Object.entries(ARRAY_PARAMS).forEach(([key, param]) => {
+    const arr = filters[key];
+    if (arr && arr.length > 0) p.set(param, arr.join(','));
+    else p.delete(param);
+  });
+  // Remove legacy ?category= once we start writing ?cat=
+  p.delete('category');
+
+  // Dimensions
+  const dimMap = {
+    minL: 'dimMinL', maxL: 'dimMaxL',
+    minW: 'dimMinW', maxW: 'dimMaxW',
+    minH: 'dimMinH', maxH: 'dimMaxH',
+  };
+  Object.entries(dimMap).forEach(([k, param]) => {
+    if (filters.dimensions[k]) p.set(param, filters.dimensions[k]);
+    else p.delete(param);
+  });
+
+  // Price
+  if (filters.priceRange.min) p.set('priceMin', filters.priceRange.min);
+  else p.delete('priceMin');
+  if (filters.priceRange.max) p.set('priceMax', filters.priceRange.max);
+  else p.delete('priceMax');
+
+  // Booleans
+  if (filters.inStockOnly)  p.set('inStock',  'true'); else p.delete('inStock');
+  if (filters.featuredOnly) p.set('featured', 'true'); else p.delete('featured');
+
+  return p;
+};
+
 // Memoized Filter Section Component - defined outside to prevent recreation
 const FilterSection = memo(({ title, children, defaultOpen = true }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -220,7 +297,6 @@ const Products = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -249,23 +325,30 @@ const Products = () => {
     };
   }, []);
 
-  // Filter states
-  const [filters, setFilters] = useState({
-    categories: [],
-    products: [], // Selected product IDs
-    dimensions: { minL: '', maxL: '', minW: '', maxW: '', minH: '', maxH: '' }, // Dimension filters
-    rangeCodes: [], // Range Code filter (from product.code)
-    rangeNames: [], // Range Name filter (from category name)
-    tags: [], // Tags filter (from products and categories)
-    ipRatings: [],
-    materials: [],
-    mountingTypes: [],
-    priceRange: { min: '', max: '' },
-    inStockOnly: false,
-    featuredOnly: false
-  });
+  // Derive filter state directly from URL — survives back/forward navigation
+  const filters = useMemo(() => paramsToFilters(searchParams), [searchParams]);
 
-  // Tag search state
+  // Search query lives in URL too so back button restores it
+  const searchQuery = searchParams.get('q') || '';
+  const setSearchQuery = useCallback((value) => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      if (value) p.set('q', value);
+      else p.delete('q');
+      return p;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Functional updater for filters — writes to URL (replace: true avoids history spam)
+  const updateFilters = useCallback((updater) => {
+    setSearchParams(prev => {
+      const current = paramsToFilters(prev);
+      const updated = typeof updater === 'function' ? updater(current) : updater;
+      return filtersToParams(updated, prev);
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Tag search state (UI-only, no need to persist)
   const [tagSearch, setTagSearch] = useState('');
 
   // Memoize products per category to avoid recalculating on every render
@@ -297,7 +380,7 @@ const Products = () => {
 
   // Toggle product selection
   const toggleProductFilter = (productId) => {
-    setFilters(prev => {
+    updateFilters(prev => {
       const current = prev.products;
       const updated = current.includes(productId)
         ? current.filter(id => id !== productId)
@@ -390,12 +473,6 @@ const Products = () => {
         ]);
         setProducts(productsData.data || []);
         setCategories(categoriesData.data || []);
-
-        // Check URL for initial category filter
-        const categoryParam = searchParams.get('category');
-        if (categoryParam) {
-          setFilters(prev => ({ ...prev, categories: [categoryParam] }));
-        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -404,7 +481,7 @@ const Products = () => {
     };
 
     fetchData();
-  }, [searchParams]);
+  }, []);
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
@@ -576,7 +653,7 @@ const Products = () => {
 
   // Toggle filter value
   const toggleFilter = (filterType, value) => {
-    setFilters(prev => {
+    updateFilters(prev => {
       const current = prev[filterType];
       const updated = current.includes(value)
         ? current.filter(v => v !== value)
@@ -587,23 +664,8 @@ const Products = () => {
 
   // Clear all filters
   const clearAllFilters = () => {
-    setFilters({
-      categories: [],
-      products: [],
-      dimensions: { minL: '', maxL: '', minW: '', maxW: '', minH: '', maxH: '' },
-      rangeCodes: [],
-      rangeNames: [],
-      tags: [],
-      ipRatings: [],
-      materials: [],
-      mountingTypes: [],
-      priceRange: { min: '', max: '' },
-      inStockOnly: false,
-      featuredOnly: false
-    });
-    setSearchQuery('');
+    setSearchParams({}, { replace: true });
     setTagSearch('');
-    setSearchParams({});
     setExpandedCategories({});
     setShowMoreProducts({});
   };
@@ -766,7 +828,7 @@ const Products = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               {searchQuery && (
-                <button className="search-clear" onClick={() => setSearchQuery('')}>
+                <button className="search-clear" onClick={() => setSearchQuery('')} aria-label="Clear search">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -944,7 +1006,7 @@ const Products = () => {
                         placeholder="Min"
                         min="0"
                         value={filters.dimensions.minL}
-                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) updateFilters(prev => ({
                           ...prev,
                           dimensions: { ...prev.dimensions, minL: e.target.value }
                         })); }}
@@ -955,7 +1017,7 @@ const Products = () => {
                         placeholder="Max"
                         min="0"
                         value={filters.dimensions.maxL}
-                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) updateFilters(prev => ({
                           ...prev,
                           dimensions: { ...prev.dimensions, maxL: e.target.value }
                         })); }}
@@ -970,7 +1032,7 @@ const Products = () => {
                         placeholder="Min"
                         min="0"
                         value={filters.dimensions.minW}
-                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) updateFilters(prev => ({
                           ...prev,
                           dimensions: { ...prev.dimensions, minW: e.target.value }
                         })); }}
@@ -981,7 +1043,7 @@ const Products = () => {
                         placeholder="Max"
                         min="0"
                         value={filters.dimensions.maxW}
-                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) updateFilters(prev => ({
                           ...prev,
                           dimensions: { ...prev.dimensions, maxW: e.target.value }
                         })); }}
@@ -996,7 +1058,7 @@ const Products = () => {
                         placeholder="Min"
                         min="0"
                         value={filters.dimensions.minH}
-                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) updateFilters(prev => ({
                           ...prev,
                           dimensions: { ...prev.dimensions, minH: e.target.value }
                         })); }}
@@ -1007,7 +1069,7 @@ const Products = () => {
                         placeholder="Max"
                         min="0"
                         value={filters.dimensions.maxH}
-                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) setFilters(prev => ({
+                        onChange={(e) => { if (e.target.value === '' || Number(e.target.value) >= 0) updateFilters(prev => ({
                           ...prev,
                           dimensions: { ...prev.dimensions, maxH: e.target.value }
                         })); }}
@@ -1164,7 +1226,7 @@ const Products = () => {
                       type="number"
                       placeholder="Min"
                       value={filters.priceRange.min}
-                      onChange={(e) => setFilters(prev => ({
+                      onChange={(e) => updateFilters(prev => ({
                         ...prev,
                         priceRange: { ...prev.priceRange, min: e.target.value }
                       }))}
@@ -1177,7 +1239,7 @@ const Products = () => {
                       type="number"
                       placeholder="Max"
                       value={filters.priceRange.max}
-                      onChange={(e) => setFilters(prev => ({
+                      onChange={(e) => updateFilters(prev => ({
                         ...prev,
                         priceRange: { ...prev.priceRange, max: e.target.value }
                       }))}
@@ -1198,7 +1260,7 @@ const Products = () => {
                     <input
                       type="checkbox"
                       checked={filters.inStockOnly}
-                      onChange={() => setFilters(prev => ({ ...prev, inStockOnly: !prev.inStockOnly }))}
+                      onChange={() => updateFilters(prev => ({ ...prev, inStockOnly: !prev.inStockOnly }))}
                     />
                     <span className="checkmark"></span>
                     <span className="filter-label">In Stock Only</span>
@@ -1207,7 +1269,7 @@ const Products = () => {
                     <input
                       type="checkbox"
                       checked={filters.featuredOnly}
-                      onChange={() => setFilters(prev => ({ ...prev, featuredOnly: !prev.featuredOnly }))}
+                      onChange={() => updateFilters(prev => ({ ...prev, featuredOnly: !prev.featuredOnly }))}
                     />
                     <span className="checkmark"></span>
                     <span className="filter-label">Featured Products</span>
@@ -1248,7 +1310,7 @@ const Products = () => {
                   {Object.values(filters.dimensions).some(v => v !== '') && (
                     <span className="filter-tag">
                       Size
-                      <button onClick={() => setFilters(prev => ({
+                      <button onClick={() => updateFilters(prev => ({
                         ...prev,
                         dimensions: { minL: '', maxL: '', minW: '', maxW: '', minH: '', maxH: '' }
                       }))}>×</button>
@@ -1293,7 +1355,7 @@ const Products = () => {
                   {(filters.priceRange.min !== '' || filters.priceRange.max !== '') && (
                     <span className="filter-tag">
                       Price: ₹{filters.priceRange.min || '0'} - ₹{filters.priceRange.max || '∞'}
-                      <button onClick={() => setFilters(prev => ({
+                      <button onClick={() => updateFilters(prev => ({
                         ...prev,
                         priceRange: { min: '', max: '' }
                       }))}>×</button>
@@ -1302,13 +1364,13 @@ const Products = () => {
                   {filters.inStockOnly && (
                     <span className="filter-tag">
                       In Stock
-                      <button onClick={() => setFilters(prev => ({ ...prev, inStockOnly: false }))}>×</button>
+                      <button onClick={() => updateFilters(prev => ({ ...prev, inStockOnly: false }))}>×</button>
                     </span>
                   )}
                   {filters.featuredOnly && (
                     <span className="filter-tag">
                       Featured
-                      <button onClick={() => setFilters(prev => ({ ...prev, featuredOnly: false }))}>×</button>
+                      <button onClick={() => updateFilters(prev => ({ ...prev, featuredOnly: false }))}>×</button>
                     </span>
                   )}
                 </div>
