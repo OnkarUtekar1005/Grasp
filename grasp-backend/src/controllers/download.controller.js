@@ -9,10 +9,12 @@ const uploadDir = process.env.UPLOAD_DIR || './uploads';
 // ===== PUBLIC =====
 
 /**
- * Get all downloads grouped by category (public)
+ * Get all downloads grouped by category (public).
+ * Also includes product documents from active products as virtual categories.
  */
 async function getAll(req, res, next) {
   try {
+    // Regular download categories
     const categories = await prisma.downloadCategory.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
@@ -24,7 +26,58 @@ async function getAll(req, res, next) {
       },
     });
 
-    response.success(res, categories);
+    // Product documents from active products
+    const productDocs = await prisma.productDocument.findMany({
+      where: { product: { isActive: true } },
+      include: { product: { select: { name: true, slug: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Map documentType → virtual category config
+    const docTypeConfig = {
+      DATASHEET:   { name: 'Product Datasheets',  slug: 'product-datasheets',   icon: 'datasheet'   },
+      MANUAL:      { name: 'Product Manuals',      slug: 'product-manuals',      icon: 'manual'      },
+      CERTIFICATE: { name: 'Certificates',         slug: 'product-certificates', icon: 'certificate' },
+      CAD:         { name: 'CAD Drawings',         slug: 'product-cad',          icon: 'catalog'     },
+      OTHER:       { name: 'Product Documents',    slug: 'product-documents',    icon: 'catalog'     },
+    };
+
+    // Group product docs by documentType
+    const grouped = {};
+    productDocs.forEach(doc => {
+      const type = doc.documentType || 'OTHER';
+      if (!grouped[type]) grouped[type] = [];
+      grouped[type].push({
+        id:            doc.id,
+        categoryId:    `product-${type.toLowerCase()}`,
+        name:          doc.name,
+        description:   doc.product?.name || null, // product name as subtitle
+        documentUrl:   doc.documentUrl,
+        fileSizeBytes: doc.fileSizeBytes,
+        sortOrder:     0,
+        isActive:      true,
+        createdAt:     doc.createdAt,
+        updatedAt:     doc.createdAt,
+      });
+    });
+
+    // Build virtual categories (only for types that have at least one document)
+    let sortCounter = 1000;
+    const virtualCategories = Object.entries(grouped).map(([type, downloads]) => {
+      const cfg = docTypeConfig[type] || docTypeConfig.OTHER;
+      return {
+        id:          `product-${type.toLowerCase()}`,
+        name:        cfg.name,
+        slug:        cfg.slug,
+        description: null,
+        icon:        cfg.icon,
+        sortOrder:   sortCounter++,
+        isActive:    true,
+        downloads,
+      };
+    });
+
+    response.success(res, [...categories, ...virtualCategories]);
   } catch (error) {
     next(error);
   }

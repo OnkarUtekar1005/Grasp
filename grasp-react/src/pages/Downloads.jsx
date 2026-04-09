@@ -34,6 +34,12 @@ const Downloads = () => {
     ? allDownloads
     : allDownloads.filter(d => d.categorySlug === activeCategory);
 
+  const getFileType = (url) => {
+    if (!url) return 'FILE';
+    const ext = url.split('.').pop().split('?')[0].toUpperCase();
+    return ext || 'FILE';
+  };
+
   const formatFileSize = (bytes) => {
     if (!bytes) return '';
     if (bytes < 1024) return `${bytes} B`;
@@ -152,7 +158,7 @@ const Downloads = () => {
                         <p className="download-desc">{item.description}</p>
                       )}
                       <div className="download-meta">
-                        <span className="file-type">PDF</span>
+                        <span className="file-type">{getFileType(item.documentUrl)}</span>
                         {item.fileSizeBytes && (
                           <span className="file-size">{formatFileSize(item.fileSizeBytes)}</span>
                         )}
