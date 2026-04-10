@@ -44,7 +44,7 @@ const productInclude = {
 async function getAll(req, res, next) {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const orderBy = parseSort(req.query, ['name', 'createdAt', 'updatedAt'], 'createdAt');
+    const orderBy = req.query.sort ? parseSort(req.query, ['name', 'createdAt', 'updatedAt'], 'createdAt') : { code: 'asc' };
 
     // Build where clause
     const where = { isActive: true };

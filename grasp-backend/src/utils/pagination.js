@@ -47,7 +47,7 @@ function buildPaginationMeta(total, page, limit) {
  */
 function parseSort(query, allowedFields, defaultField = 'createdAt') {
   const sortField = allowedFields.includes(query.sort) ? query.sort : defaultField;
-  const sortOrder = query.order === 'desc' ? 'desc' : 'asc';
+  const sortOrder = query.order === 'asc' ? 'asc' : 'desc';
 
   return { [sortField]: sortOrder };
 }

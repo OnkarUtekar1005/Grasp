@@ -64,8 +64,7 @@ const Footer = () => {
           </div>
         </div>
         <div className="footer-bottom">
-          <span>&copy; 2025 Grasp Electric Private Limited</span>
-          <span>100% Made in India</span>
+          <span>&copy; 2025 Grasp Electric Private Limited&trade;</span>
         </div>
       </div>
     </footer>

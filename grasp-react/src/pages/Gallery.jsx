@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import { Navbar, Footer } from '../components';
 import { galleryAPI, BACKEND_URL } from '../services';
 
+const ITEMS_PER_PAGE = 12;
+
 const Gallery = () => {
   const [galleryImages, setGalleryImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
   const [filterFeatured, setFilterFeatured] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch gallery images from backend
   useEffect(() => {
@@ -30,6 +33,12 @@ const Gallery = () => {
   const filteredImages = filterFeatured
     ? galleryImages.filter(img => img.isFeatured)
     : galleryImages;
+
+  const totalPages = Math.ceil(filteredImages.length / ITEMS_PER_PAGE);
+  const paginatedImages = filteredImages.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   // Get image URL
   const getImageUrl = (imageUrl) => {
@@ -103,7 +112,7 @@ const Gallery = () => {
               <input
                 type="checkbox"
                 checked={filterFeatured}
-                onChange={(e) => setFilterFeatured(e.target.checked)}
+                onChange={(e) => { setFilterFeatured(e.target.checked); setCurrentPage(1); }}
               />
               <span className="checkmark"></span>
               <span>Show Featured Only</span>
@@ -124,7 +133,7 @@ const Gallery = () => {
           </div>
         ) : (
           <div className="gallery-grid">
-            {filteredImages.map((image) => (
+            {paginatedImages.map((image) => (
               <div
                 key={image.id}
                 className="gallery-item"
@@ -153,6 +162,36 @@ const Gallery = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {!loading && totalPages > 1 && (
+          <div className="pagination" style={{ padding: '0 24px' }}>
+            <button
+              className="pagination-btn"
+              disabled={currentPage === 1}
+              onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            >
+              &laquo; Previous
+            </button>
+            <div className="pagination-pages">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  className={`pagination-page ${currentPage === page ? 'active' : ''}`}
+                  onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            <button
+              className="pagination-btn"
+              disabled={currentPage === totalPages}
+              onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            >
+              Next &raquo;
+            </button>
           </div>
         )}
 
