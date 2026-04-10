@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Navbar, Footer } from '../components';
-import { galleryAPI, BACKEND_URL } from '../services';
+import { galleryAPI, productAPI, BACKEND_URL } from '../services';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -10,18 +10,52 @@ const Gallery = () => {
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
   const [filterFeatured, setFilterFeatured] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch gallery images from backend
+  // Fetch gallery images + product images from backend
   useEffect(() => {
-    fetchGalleryImages();
+    fetchAllImages();
   }, []);
 
-  const fetchGalleryImages = async () => {
+  const fetchAllImages = async () => {
     try {
       setLoading(true);
-      const response = await galleryAPI.getAll();
-      setGalleryImages(response.data || []);
+      const [galleryRes, productsRes] = await Promise.all([
+        galleryAPI.getAll(),
+        productAPI.getAll({ limit: 1000 }),
+      ]);
+
+      const dedicatedGallery = galleryRes.data || [];
+
+      // Convert product images into gallery-shaped items
+      const products = productsRes.data || [];
+      const productImageItems = [];
+      products.forEach(product => {
+        (product.images || []).forEach(img => {
+          productImageItems.push({
+            id: `product-${img.id}`,
+            title: product.name,
+            description: product.code || null,
+            imageUrl: img.imageUrl,
+            altText: img.altText || product.name,
+            isFeatured: false,
+            isProductImage: true,
+            products: [{
+              productId: product.id,
+              product: {
+                id: product.id,
+                name: product.name,
+                slug: product.slug,
+                images: product.images,
+                categories: product.categories,
+              },
+            }],
+          });
+        });
+      });
+
+      setGalleryImages([...dedicatedGallery, ...productImageItems]);
     } catch (error) {
       console.error('Failed to fetch gallery images:', error);
     } finally {
@@ -29,10 +63,40 @@ const Gallery = () => {
     }
   };
 
+  // Build unique categories list from linked products
+  const categoriesMap = new Map();
+  galleryImages.forEach(img => {
+    img.products?.forEach(p => {
+      p.product?.categories?.forEach(c => {
+        if (c.category) {
+          categoriesMap.set(c.category.id, c.category);
+        }
+      });
+    });
+  });
+  const allCategories = Array.from(categoriesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  // Get count of images per category
+  const getCategoryCount = (categoryId) => {
+    return galleryImages.filter(img =>
+      img.products?.some(p =>
+        p.product?.categories?.some(c => c.category?.id === categoryId)
+      )
+    ).length;
+  };
+
   // Filter images
-  const filteredImages = filterFeatured
-    ? galleryImages.filter(img => img.isFeatured)
-    : galleryImages;
+  let filteredImages = galleryImages;
+  if (filterFeatured) {
+    filteredImages = filteredImages.filter(img => img.isFeatured);
+  }
+  if (activeCategory !== 'all') {
+    filteredImages = filteredImages.filter(img =>
+      img.products?.some(p =>
+        p.product?.categories?.some(c => c.category?.id === activeCategory)
+      )
+    );
+  }
 
   const totalPages = Math.ceil(filteredImages.length / ITEMS_PER_PAGE);
   const paginatedImages = filteredImages.slice(
@@ -107,7 +171,21 @@ const Gallery = () => {
       {/* Gallery Controls */}
       <section className="gallery-controls">
         <div className="gallery-controls-inner">
-          <div className="gallery-filter">
+          <div className="gallery-filter" style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {allCategories.length > 0 && (
+              <select
+                className="gallery-category-select"
+                value={activeCategory}
+                onChange={(e) => { setActiveCategory(e.target.value); setCurrentPage(1); }}
+              >
+                <option value="all">All Product Ranges ({galleryImages.length})</option>
+                {allCategories.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name} ({getCategoryCount(cat.id)})
+                  </option>
+                ))}
+              </select>
+            )}
             <label className="checkbox-label filter-checkbox">
               <input
                 type="checkbox"
