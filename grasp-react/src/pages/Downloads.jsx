@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { Navbar, Footer } from '../components';
 import { downloadAPI, BACKEND_URL } from '../services';
 
+const ITEMS_PER_PAGE = 12;
+
 const Downloads = () => {
   const [activeCategory, setActiveCategory] = useState('all');
   const [categories, setCategories] = useState([]);
   const [allDownloads, setAllDownloads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchDownloads();
@@ -33,6 +36,12 @@ const Downloads = () => {
   const filteredDownloads = activeCategory === 'all'
     ? allDownloads
     : allDownloads.filter(d => d.categorySlug === activeCategory);
+
+  const totalPages = Math.ceil(filteredDownloads.length / ITEMS_PER_PAGE);
+  const paginatedDownloads = filteredDownloads.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const getFileType = (url) => {
     if (!url) return 'FILE';
@@ -128,7 +137,7 @@ const Downloads = () => {
               <div className="downloads-filter">
                 <button
                   className={`filter-btn ${activeCategory === 'all' ? 'active' : ''}`}
-                  onClick={() => setActiveCategory('all')}
+                  onClick={() => { setActiveCategory('all'); setCurrentPage(1); }}
                 >
                   All Downloads
                   <span className="filter-count">{allDownloads.length}</span>
@@ -137,7 +146,7 @@ const Downloads = () => {
                   <button
                     key={cat.id}
                     className={`filter-btn ${activeCategory === cat.slug ? 'active' : ''}`}
-                    onClick={() => setActiveCategory(cat.slug)}
+                    onClick={() => { setActiveCategory(cat.slug); setCurrentPage(1); }}
                   >
                     {cat.name}
                     <span className="filter-count">{cat.downloads.length}</span>
@@ -147,7 +156,7 @@ const Downloads = () => {
 
               {/* Downloads Grid */}
               <div className="downloads-grid">
-                {filteredDownloads.map(item => (
+                {paginatedDownloads.map(item => (
                   <div key={item.id} className="download-card">
                     <div className="download-icon">
                       {getIcon(item.categoryIcon)}
@@ -181,6 +190,37 @@ const Downloads = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="pagination">
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  >
+                    &laquo; Previous
+                  </button>
+                  <div className="pagination-pages">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        className={`pagination-page ${currentPage === page ? 'active' : ''}`}
+                        onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  >
+                    Next &raquo;
+                  </button>
+                </div>
+              )}
             </>
           )}
 
