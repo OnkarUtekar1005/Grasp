@@ -1,21 +1,19 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
-import { productAPI, BACKEND_URL } from '../services';
 
-// Fallback images if no products in database
 import image1 from '../assets/images/574a918b-a771-49ed-bd8a-a6ba1442d13a.jpg';
-import image2 from '../assets/images/ace12808-eebe-41d2-a2d1-0400126c4753.jpg';
-import image3 from '../assets/images/dc211ccc-9b53-486c-96bc-8af8e9bdea82.jpg';
+import image2 from '../assets/images/customized-enclosure.png';
+import image3 from '../assets/images/polycarbonate-window-pd.png';
 
 const fallbackItems = [
   { id: 0, title: 'Power Distribution', image: image1, slug: null },
-  { id: 1, title: 'Control Panel', image: image2, slug: null },
-  { id: 2, title: 'Junction Box', image: image3, slug: null }
+  { id: 1, title: 'Customized Enclosure', image: image2, slug: null },
+  { id: 2, title: 'Polycarbonate Window PD', image: image3, slug: null }
 ];
 
 const ProductShowcase = forwardRef((props, ref) => {
-  const [showcaseItems, setShowcaseItems] = useState(fallbackItems);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showcaseItems] = useState(fallbackItems);
+  const [currentIndex, setCurrentIndex] = useState(1);
   const [isScrolling, setIsScrolling] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const carouselRef = useRef(null);
@@ -47,38 +45,6 @@ const ProductShowcase = forwardRef((props, ref) => {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  useEffect(() => {
-    const fetchFeaturedProducts = async () => {
-      try {
-        const response = await productAPI.getFeatured(6);
-        const products = response.data || [];
-
-        if (products.length > 0) {
-          const items = products.map((product, index) => {
-            // Get primary image or first image
-            const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
-            const imageUrl = primaryImage?.imageUrl
-              ? (primaryImage.imageUrl.startsWith('http') ? primaryImage.imageUrl : `${BACKEND_URL}${primaryImage.imageUrl}`)
-              : fallbackItems[index % fallbackItems.length]?.image;
-
-            return {
-              id: index,
-              productId: product.id,
-              title: product.name,
-              image: imageUrl,
-              slug: product.slug
-            };
-          });
-          setShowcaseItems(items);
-          setCurrentIndex(Math.min(1, items.length - 1));
-        }
-      } catch (error) {
-        console.error('Error fetching featured products:', error);
-      }
-    };
-    fetchFeaturedProducts();
   }, []);
 
   const itemCount = showcaseItems.length;
