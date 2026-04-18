@@ -31,26 +31,26 @@ const createGallerySchema = {
   body: z.object({
     title: z.string().min(1, 'Title is required').max(200),
     description: z.string().optional(),
-    altText: z.string().max(200).optional(),
     isFeatured: booleanFromFormData.default(false),
     isActive: booleanFromFormData.default(true),
     sortOrder: numberFromFormData.default(0),
     productIds: arrayFromFormData,
+    altTexts: arrayFromFormData,
   }),
 };
 
 const updateGallerySchema = {
   params: z.object({
-    id: z.string().uuid('Invalid gallery image ID'),
+    id: z.string().uuid('Invalid gallery post ID'),
   }),
   body: z.object({
     title: z.string().min(1).max(200).optional(),
     description: z.string().optional().nullable(),
-    altText: z.string().max(200).optional().nullable(),
     isFeatured: booleanFromFormData,
     isActive: booleanFromFormData,
     sortOrder: numberFromFormData,
     productIds: arrayFromFormData,
+    fileUpdates: z.string().optional(),
   }),
 };
 
