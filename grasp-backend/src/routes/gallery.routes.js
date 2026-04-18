@@ -27,14 +27,14 @@ router.get('/:id', validate(galleryIdSchema), galleryController.getById);
 router.post(
   '/',
   authenticate,
-  uploadImage.single('image'),
+  uploadImage.array('images', 20),
   validate(createGallerySchema),
   galleryController.create
 );
 router.put(
   '/:id',
   authenticate,
-  uploadImage.single('image'),
+  uploadImage.array('images', 20),
   validate(updateGallerySchema),
   galleryController.update
 );

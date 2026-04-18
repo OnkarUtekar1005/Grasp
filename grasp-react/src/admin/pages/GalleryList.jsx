@@ -80,21 +80,42 @@ const GalleryList = () => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 4v16m8-8H4" />
           </svg>
-          Add Image
+          Add Post
         </Link>
       </div>
 
       {/* Gallery Grid */}
       <div className="gallery-grid-admin">
-        {filteredImages.map(image => (
+        {filteredImages.map(image => {
+          const files = image.files || [];
+          const coverFile = files[0];
+          const coverUrl = coverFile?.imageUrl
+            ? (coverFile.imageUrl.startsWith('http') ? coverFile.imageUrl : `${BACKEND_URL}${coverFile.imageUrl}`)
+            : null;
+          return (
           <div key={image.id} className={`gallery-card-admin ${!image.isActive ? 'inactive' : ''}`}>
             <div className="gallery-card-image">
-              <img
-                src={image.imageUrl.startsWith('http') ? image.imageUrl : `${BACKEND_URL}${image.imageUrl}`}
-                alt={image.altText || image.title}
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
+              {coverUrl ? (
+                <img
+                  src={coverUrl}
+                  alt={coverFile?.altText || image.title}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', color: '#999' }}>
+                  No image
+                </div>
+              )}
               <div className="gallery-card-badges">
+                {files.length > 1 && (
+                  <span className="featured-badge" style={{ background: '#333' }}>
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle', marginRight: 4 }}>
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <path d="M7 7h10M7 12h10M7 17h10" />
+                    </svg>
+                    {files.length} photos
+                  </span>
+                )}
                 {image.isFeatured && (
                   <span className="featured-badge">Featured</span>
                 )}
@@ -134,7 +155,8 @@ const GalleryList = () => {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {filteredImages.length === 0 && (
