@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Navbar, Footer } from '../components';
-import { galleryAPI, productAPI, BACKEND_URL } from '../services';
+import { galleryAPI, BACKEND_URL } from '../services';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -13,49 +13,16 @@ const Gallery = () => {
   const [activeCategory, setActiveCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch gallery images + product images from backend
+  // Fetch gallery images from backend
   useEffect(() => {
-    fetchAllImages();
+    fetchGalleryImages();
   }, []);
 
-  const fetchAllImages = async () => {
+  const fetchGalleryImages = async () => {
     try {
       setLoading(true);
-      const [galleryRes, productsRes] = await Promise.all([
-        galleryAPI.getAll(),
-        productAPI.getAll({ limit: 1000 }),
-      ]);
-
-      const dedicatedGallery = galleryRes.data || [];
-
-      // Convert product images into gallery-shaped items
-      const products = productsRes.data || [];
-      const productImageItems = [];
-      products.forEach(product => {
-        (product.images || []).forEach(img => {
-          productImageItems.push({
-            id: `product-${img.id}`,
-            title: product.name,
-            description: product.code || null,
-            imageUrl: img.imageUrl,
-            altText: img.altText || product.name,
-            isFeatured: false,
-            isProductImage: true,
-            products: [{
-              productId: product.id,
-              product: {
-                id: product.id,
-                name: product.name,
-                slug: product.slug,
-                images: product.images,
-                categories: product.categories,
-              },
-            }],
-          });
-        });
-      });
-
-      setGalleryImages([...dedicatedGallery, ...productImageItems]);
+      const response = await galleryAPI.getAll();
+      setGalleryImages(response.data || []);
     } catch (error) {
       console.error('Failed to fetch gallery images:', error);
     } finally {
