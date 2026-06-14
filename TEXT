@@ -1,0 +1,8 @@
+[plugin:vite:import-analysis] Failed to resolve import "@dnd-kit/core" from "src/admin/pages/ProductForm.jsx". Does the file exist?
+D:/TechViewAi/Grasp/Grasp/grasp-react/src/admin/pages/ProductForm.jsx:20:7
+16 |    useSensor,
+17 |    useSensors
+18 |  } from "@dnd-kit/core";
+   |          ^
+19 |  import {
+20 |    arrayMove,

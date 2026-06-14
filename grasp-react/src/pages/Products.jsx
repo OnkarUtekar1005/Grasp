@@ -119,9 +119,38 @@ const fuzzySearchProduct = (product, query, categories) => {
     }
   }
 
-  // Search across all fields with different weights
+  let bestScore = 0;
+  let hasMatch = false;
+
+  // 1. PRODUCT CODE — always the dominant field.
+  // A strong code match is lifted into its own score tier so that an exact or
+  // strong partial product-code match ALWAYS outranks any size/dimension or
+  // other-field match. This is the fix for size being prioritized over code:
+  // a real code match scores >= 1075, while every other field maxes out at ~110.
+  if (product.code) {
+    const codeResult = fuzzyMatch(product.code, query);
+    if (codeResult.match) {
+      hasMatch = true;
+      let codeScore;
+      if (codeResult.score >= 100) {
+        // Exact product-code match — top of every result list
+        codeScore = 3000;
+      } else if (codeResult.score >= 75) {
+        // Strong partial: starts-with / contains / word-start — ranks above all
+        // non-code matches (including any exact size/dimension match)
+        codeScore = 1000 + codeResult.score;
+      } else {
+        // Loose/typo match only — keep the original code weight so a low-confidence
+        // fuzzy code hit does not wrongly outrank an exact name/category match
+        codeScore = codeResult.score * 1.2;
+      }
+      bestScore = Math.max(bestScore, codeScore);
+    }
+  }
+
+  // 2. All other fields. Size/dimension fields remain fully searchable, but their
+  // scores can never outrank a real product-code match (see tiers above).
   const searches = [
-    { text: product.code, weight: 1.2 },        // Product code - highest priority
     { text: product.name, weight: 1.1 },        // Product name - high priority
     ...categoryCodes.map(code => ({ text: code, weight: 1.0 })),  // Category code
     ...categoryNames.map(name => ({ text: name, weight: 0.9 })),  // Category name
@@ -136,9 +165,6 @@ const fuzzySearchProduct = (product, query, categories) => {
     { text: product.specIpRating, weight: 0.8 },     // IP Rating spec
     { text: product.description, weight: 0.5 },      // Description - lowest priority
   ];
-
-  let bestScore = 0;
-  let hasMatch = false;
 
   for (const { text, weight } of searches) {
     if (text) {
@@ -184,10 +210,6 @@ const paramsToFilters = (params) => ({
     minH: params.get('dimMinH') || '',
     maxH: params.get('dimMaxH') || '',
   },
-  priceRange: {
-    min: params.get('priceMin') || '',
-    max: params.get('priceMax') || '',
-  },
   inStockOnly:  params.get('inStock')  === 'true',
   featuredOnly: params.get('featured') === 'true',
 });
@@ -214,12 +236,6 @@ const filtersToParams = (filters, existing) => {
     if (filters.dimensions[k]) p.set(param, filters.dimensions[k]);
     else p.delete(param);
   });
-
-  // Price
-  if (filters.priceRange.min) p.set('priceMin', filters.priceRange.min);
-  else p.delete('priceMin');
-  if (filters.priceRange.max) p.set('priceMax', filters.priceRange.max);
-  else p.delete('priceMax');
 
   // Booleans
   if (filters.inStockOnly)  p.set('inStock',  'true'); else p.delete('inStock');
@@ -403,8 +419,6 @@ const Products = () => {
     const ipRatings = new Set();
     const materials = new Set();
     const mountingTypes = new Set();
-    let minPrice = Infinity;
-    let maxPrice = 0;
 
     // Extract tags from products
     products.forEach(product => {
@@ -432,10 +446,6 @@ const Products = () => {
           mountingTypes.add(product.specs.mounting);
         }
       }
-      if (product.price) {
-        minPrice = Math.min(minPrice, product.price);
-        maxPrice = Math.max(maxPrice, product.price);
-      }
     });
 
     // Extract tags from categories (product ranges)
@@ -451,7 +461,6 @@ const Products = () => {
       ipRatings: Array.from(ipRatings).sort(),
       materials: Array.from(materials).sort(),
       mountingTypes: Array.from(mountingTypes).sort(),
-      priceRange: { min: minPrice === Infinity ? 0 : minPrice, max: maxPrice }
     };
   }, [products, categories]);
 
@@ -580,16 +589,6 @@ const Products = () => {
       );
     }
 
-    // Price range filter
-    if (filters.priceRange.min !== '' || filters.priceRange.max !== '') {
-      result = result.filter(product => {
-        if (!product.price) return filters.priceRange.min === '' && filters.priceRange.max === '';
-        const min = filters.priceRange.min !== '' ? parseFloat(filters.priceRange.min) : 0;
-        const max = filters.priceRange.max !== '' ? parseFloat(filters.priceRange.max) : Infinity;
-        return product.price >= min && product.price <= max;
-      });
-    }
-
     // In stock filter (check both isActive and inStock for compatibility)
     if (filters.inStockOnly) {
       result = result.filter(product => product.isActive !== false && product.inStock !== false);
@@ -666,11 +665,21 @@ const Products = () => {
     count += filters.ipRatings.length;
     count += filters.materials.length;
     count += filters.mountingTypes.length;
-    if (filters.priceRange.min !== '' || filters.priceRange.max !== '') count++;
     if (filters.inStockOnly) count++;
     if (filters.featuredOnly) count++;
     return count;
   }, [filters]);
+
+  // Show the category browser (cards) in the main area when nothing is searched
+  // or filtered. As soon as the user searches or applies any filter, the main
+  // area switches to the matching product list.
+  const showCategoryView = !searchQuery.trim() && activeFilterCount === 0;
+
+  // Selecting a category card applies that category as the active filter, which
+  // switches the main area to that category's products.
+  const selectCategory = useCallback((slug) => {
+    updateFilters(prev => ({ ...prev, categories: [slug] }));
+  }, [updateFilters]);
 
   // Helper to safely get array from specs/features
   const getArray = (value) => {
@@ -1182,42 +1191,6 @@ const Products = () => {
                 </FilterSection>
               )}
 
-              {/* Price Range */}
-              <FilterSection title="Price Range" defaultOpen={false}>
-                <div className="price-range-inputs">
-                  <div className="price-input-group">
-                    <span className="price-currency">₹</span>
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={filters.priceRange.min}
-                      onChange={(e) => updateFilters(prev => ({
-                        ...prev,
-                        priceRange: { ...prev.priceRange, min: e.target.value }
-                      }))}
-                    />
-                  </div>
-                  <span className="price-separator">to</span>
-                  <div className="price-input-group">
-                    <span className="price-currency">₹</span>
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={filters.priceRange.max}
-                      onChange={(e) => updateFilters(prev => ({
-                        ...prev,
-                        priceRange: { ...prev.priceRange, max: e.target.value }
-                      }))}
-                    />
-                  </div>
-                </div>
-                {filterOptions.priceRange.max > 0 && (
-                  <div className="price-range-hint">
-                    Range: ₹{filterOptions.priceRange.min.toLocaleString()} - ₹{filterOptions.priceRange.max.toLocaleString()}
-                  </div>
-                )}
-              </FilterSection>
-
               {/* Availability */}
               <FilterSection title="Availability" defaultOpen={false}>
                 <div className="filter-options">
@@ -1311,15 +1284,6 @@ const Products = () => {
                       <button onClick={() => toggleFilter('mountingTypes', type)}>×</button>
                     </span>
                   ))}
-                  {(filters.priceRange.min !== '' || filters.priceRange.max !== '') && (
-                    <span className="filter-tag">
-                      Price: ₹{filters.priceRange.min || '0'} - ₹{filters.priceRange.max || '∞'}
-                      <button onClick={() => updateFilters(prev => ({
-                        ...prev,
-                        priceRange: { min: '', max: '' }
-                      }))}>×</button>
-                    </span>
-                  )}
                   {filters.inStockOnly && (
                     <span className="filter-tag">
                       In Stock
@@ -1337,20 +1301,67 @@ const Products = () => {
               </div>
             )}
 
-            {/* Results Count */}
-            <div className="results-header">
-              <span className="results-count">
-                Showing <strong>{filteredProducts.length}</strong> of <strong>{products.length}</strong> products
-              </span>
-            </div>
-
             {/* Products Display */}
             {loading ? (
               <div className="products-loading">
                 <div className="loading-spinner" />
                 <p>Loading products...</p>
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : showCategoryView ? (
+              /* Category browser — shown when nothing is searched or filtered */
+              <div className="categories-grid products-category-grid">
+                {categories.map((category, index) => {
+                  const count = getProductsForCategory(category.id).length;
+                  return (
+                    <div
+                      key={category.id}
+                      className="category-card"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => selectCategory(category.slug)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectCategory(category.slug); } }}
+                    >
+                      <div className="category-image">
+                        {category.imageUrl ? (
+                          <img
+                            src={category.imageUrl.startsWith('http') ? category.imageUrl : `${BACKEND_URL}${category.imageUrl}`}
+                            alt={category.name}
+                            loading="lazy"
+                          />
+                        ) : (
+                          renderProductSVG(index % 6 + 1)
+                        )}
+                      </div>
+                      {category.code && <div className="category-code">{category.code}</div>}
+                      <h3 className="category-name">{category.name}</h3>
+                      {category.description && <p className="category-desc">{category.description}</p>}
+                      <div className="category-card-count">{count} {count === 1 ? 'product' : 'products'}</div>
+                      <span className="category-link">
+                        View Products
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+              {/* Back to categories + results count */}
+              <div className="results-header">
+                <button className="back-to-categories-btn" onClick={clearAllFilters}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
+                  Back to categories
+                </button>
+                <span className="results-count">
+                  Showing <strong>{filteredProducts.length}</strong> of <strong>{products.length}</strong> products
+                </span>
+              </div>
+
+              {filteredProducts.length === 0 ? (
               <div className="products-empty">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="11" cy="11" r="8" />
@@ -1467,6 +1478,8 @@ const Products = () => {
                     Show More ({filteredProducts.length - visibleCount} remaining)
                   </button>
                 </div>
+              )}
+              </>
               )}
               </>
             )}
