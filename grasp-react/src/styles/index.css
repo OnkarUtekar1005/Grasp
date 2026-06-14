@@ -2376,6 +2376,15 @@ body { font-family: var(--font-body); background: var(--bg-primary); color: var(
 .products-category-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .category-card-count { font-size: 13px; font-weight: 600; color: var(--maroon); margin-top: 8px; }
 
+/* Light theme for category cards on the products page so they match the white
+   product cards (the global .category-card is dark for the homepage section). */
+.products-category-grid .category-card { background: #fff; border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; }
+.products-category-grid .category-card:hover { border-color: var(--maroon); box-shadow: 0 12px 32px rgba(194, 31, 38, 0.15); }
+.products-category-grid .category-image { height: 180px; margin-bottom: 16px; }
+.products-category-grid .category-code { color: var(--maroon); }
+.products-category-grid .category-name { color: var(--text-primary); }
+.products-category-grid .category-desc { color: var(--text-secondary); }
+
 /* Products Grid Container */
 .products-grid-container { display: grid; gap: 24px; }
 .products-grid-container.grid { grid-template-columns: repeat(3, 1fr); }
