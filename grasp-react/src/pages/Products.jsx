@@ -599,28 +599,33 @@ const Products = () => {
       result = result.filter(product => product.isFeatured || product.featured);
     }
 
-    // Helper to get first category name for sorting
-    const getFirstCategoryName = (product) => {
-      // Check new junction table format first
-      if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
-        return product.categories[0]?.category?.name || '';
-      }
-      // Fall back to old format
-      return product.category?.name || categories.find(c => c.id === product.categoryId)?.name || 'ZZZ';
-    };
+    // Sort by category (A-Z) then product name (A-Z) — but only when browsing
+    // without a search query. An active search already sorted `result` by
+    // relevance score above (line ~505); re-sorting alphabetically here would
+    // discard that relevance order (e.g. an exact code match for "5.02" would
+    // get pushed behind "7.01" simply because its category name starts with "P").
+    if (!searchQuery.trim()) {
+      const getFirstCategoryName = (product) => {
+        // Check new junction table format first
+        if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+          return product.categories[0]?.category?.name || '';
+        }
+        // Fall back to old format
+        return product.category?.name || categories.find(c => c.id === product.categoryId)?.name || 'ZZZ';
+      };
 
-    // Sort by category first (A-Z), then by product name within each category (A-Z)
-    result.sort((a, b) => {
-      const catA = getFirstCategoryName(a);
-      const catB = getFirstCategoryName(b);
+      result.sort((a, b) => {
+        const catA = getFirstCategoryName(a);
+        const catB = getFirstCategoryName(b);
 
-      // First sort by category name (A-Z)
-      const categoryCompare = catA.toLowerCase().localeCompare(catB.toLowerCase());
-      if (categoryCompare !== 0) return categoryCompare;
+        // First sort by category name (A-Z)
+        const categoryCompare = catA.toLowerCase().localeCompare(catB.toLowerCase());
+        if (categoryCompare !== 0) return categoryCompare;
 
-      // Then sort by product name within same category (A-Z)
-      return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
-    });
+        // Then sort by product name within same category (A-Z)
+        return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+      });
+    }
 
     return result;
   }, [products, categories, searchQuery, filters]);
